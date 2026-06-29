@@ -28,10 +28,19 @@ Hosts that contact the proxy are **auto-registered as pending** and only become
 ### One-line install (recommended)
 
 Auto-detects your CPU architecture and package format (`.deb`/`.rpm`/`.apk`) and
-installs the matching package from the latest release:
+installs the matching package (including shell completion and the systemd
+service) from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | sh
+```
+
+Want just the CLI, with **no service and no config** (e.g. to run `serve` by hand
+on a single host)? Use CLI-only mode - it installs the binary to
+`/usr/local/bin` plus shell completions:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | PMOX_CLI_ONLY=1 sh
 ```
 
 Pin a version with `VERSION=0.2.0`, or review the script first:
@@ -100,7 +109,8 @@ CGO_ENABLED=0 go build -ldflags "-s -w" -o proxmox-license-proxy .
 
 ```sh
 docker compose up -d --build
-docker compose exec proxy proxmox-license-proxy license add pbsc-1234567890
+# mint a lab key (interactive product picker, or pass --product pbs --level c --yes)
+docker compose exec proxy proxmox-license-proxy license generate --product pbs --yes
 docker compose exec proxy proxmox-license-proxy server pending
 docker compose exec proxy proxmox-license-proxy server approve <serverid>
 ```
