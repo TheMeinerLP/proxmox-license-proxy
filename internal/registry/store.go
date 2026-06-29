@@ -57,6 +57,9 @@ func (s *Store) mutate(fn func(*subscription.Registry) error) error {
 		return fmt.Errorf("lock registry: %w", err)
 	}
 	defer func() { _ = lock.Unlock() }()
+	// The lock file may be created by either a root-run CLI or the pmox service;
+	// keep it group-writable so both can take the lock on a shared registry.
+	_ = os.Chmod(s.path+".lock", 0o660)
 
 	reg, err := s.Load()
 	if err != nil {
@@ -76,10 +79,16 @@ func (s *Store) save(reg subscription.Registry) error {
 	// Keep the last good copy so a bad edit can be recovered. Best-effort: a
 	// missing file (first write) or backup failure must not block the write.
 	if prev, rerr := os.ReadFile(s.path); rerr == nil {
-		_ = os.WriteFile(s.path+".bak", prev, 0o640)
+		_ = os.WriteFile(s.path+".bak", prev, 0o660)
+		_ = os.Chmod(s.path+".bak", 0o660)
 	}
 	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o640); err != nil {
+	if err := os.WriteFile(tmp, data, 0o660); err != nil {
+		return err
+	}
+	// Pin 0660 regardless of umask so a registry written by root (CLI) stays
+	// writable by the pmox service group, and vice versa, on a shared dir.
+	if err := os.Chmod(tmp, 0o660); err != nil {
 		return err
 	}
 	return os.Rename(tmp, s.path)
