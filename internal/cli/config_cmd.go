@@ -15,8 +15,10 @@ const defaultConfigPath = "/etc/pmox/config.yaml"
 
 // ensureDirFor creates the parent directory of path (e.g. /etc/pmox) so writing
 // the config there works on a fresh host, not only after the package created it.
+// 0750 keeps it owner/group-only; the package re-applies the setgid group-pmox
+// bits it needs for the service.
 func ensureDirFor(path string) error {
-	return os.MkdirAll(filepath.Dir(path), 0o755)
+	return os.MkdirAll(filepath.Dir(path), 0o750)
 }
 
 // defaultConfigYAML is the scaffold written by `config init`. It mirrors the
