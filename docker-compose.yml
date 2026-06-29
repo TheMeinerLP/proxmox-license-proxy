@@ -1,0 +1,32 @@
+services:
+  proxy:
+    build: .
+    # Alternatively pull a prebuilt image instead of building:
+    # image: ghcr.io/themeinerlp/proxmox-license-proxy:latest
+    container_name: pmox-proxy
+    restart: unless-stopped
+
+    # Host 443 -> container 8443 (TLS). Bind only to a specific interface in
+    # production-adjacent networks, e.g. "10.0.0.5:443:8443".
+    ports:
+      - "443:8443"
+
+    environment:
+      PMOX_LISTEN: ":8443"
+      PMOX_TLS_MODE: "auto"          # auto | files | http
+      PMOX_REGISTRY_FILE: "/data/registry.json"
+      PMOX_LOG: "info"
+
+    # The registry (licenses + auto-registered hosts) persists here.
+    volumes:
+      - registry:/data
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://127.0.0.1:8443/readyz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  registry:

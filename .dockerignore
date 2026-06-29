@@ -1,0 +1,10 @@
+.git
+.idea
+*.md
+/proxmox-license-proxy
+dist/
+*.pem
+config.yaml
+registry.json
+Dockerfile
+docker-compose.yml
