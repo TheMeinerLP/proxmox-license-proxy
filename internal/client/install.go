@@ -55,11 +55,13 @@ func InstallBinary(src, dest string) (Result, error) {
 	}
 
 	if dir := filepath.Dir(dest); dir != "" {
+		//nolint:gosec // G301: install dirs like /usr/local/bin are world-traversable (0755) by design
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return Result{}, err
 		}
 	}
 	tmp := dest + ".tmp"
+	//nolint:gosec // G306: an installed CLI binary must be world-executable (0755)
 	if err := os.WriteFile(tmp, data, 0o755); err != nil {
 		return Result{}, fmt.Errorf("write %s (need root?): %w", dest, err)
 	}

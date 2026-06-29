@@ -33,6 +33,7 @@ var certGenerateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		//nolint:gosec // G306: a TLS certificate is public and meant to be world-readable
 		if err := os.WriteFile(certOutCert, certPEM, 0o644); err != nil {
 			return err
 		}

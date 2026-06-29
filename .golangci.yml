@@ -12,16 +12,21 @@ linters:
     - bodyclose # HTTP clients in certs/client
     - errorlint
     - gocritic
+    - nolintlint # every //nolint must name the linter and carry a justification
   settings:
     gosec:
+      # Only one blanket exclusion remains: every other finding (md5, TLS
+      # bootstrap, shared-group file modes) is justified inline with a
+      # //nolint:gosec comment at the exact call site - see the code.
       excludes:
-        - G401 # md5 is mandated by the Proxmox subscription protocol
-        - G501 # blocklisted import crypto/md5 - same reason
-        - G402 # InsecureSkipVerify in certs.Download is intentional (cert bootstrap)
-        - G301 # 0755 dirs are intentional (config/data directories)
-        - G306 # 0640/0644 files are intentional (group-readable config/registry)
-        - G304 # file paths come from trusted config (hosts file, registry path)
-        - G703 # path traversal: destinations come from trusted config/flags
+        # G304: all file paths are operator-supplied config/CLI-flag values on an
+        # admin tool, not attacker input. This is the one systematic pattern where
+        # a scoped exclude beats annotating ~20 trusted read/write call sites.
+        - G304
+    nolintlint:
+      require-explanation: true # a bare //nolint without a reason is rejected
+      require-specific: true # //nolint must name the linter, e.g. //nolint:gosec
+      allow-unused: false # a //nolint that suppresses nothing is rejected
     errcheck:
       exclude-functions:
         - fmt.Fprint # writes to stdout / tabwriter; the error is not actionable

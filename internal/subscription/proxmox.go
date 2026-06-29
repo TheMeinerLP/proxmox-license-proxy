@@ -1,7 +1,7 @@
 package subscription
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // G501: md5 is mandated by the Proxmox subscription protocol
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -16,6 +16,7 @@ const SharedKeyData = "kjfdlskfhiuewhfk947368"
 // ChallengeHash is the md5hash value the Proxmox client expects for an active
 // response. checkToken is the value from the request's "check_token" field.
 func ChallengeHash(checkToken string) string {
+	//nolint:gosec // G401: the Proxmox protocol requires md5(SharedKeyData+check_token); not security-sensitive
 	sum := md5.Sum([]byte(SharedKeyData + checkToken))
 	return hex.EncodeToString(sum[:])
 }

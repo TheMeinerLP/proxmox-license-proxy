@@ -54,7 +54,7 @@ var configInitCmd = &cobra.Command{
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if err := os.WriteFile(configInitOut, []byte(defaultConfigYAML), 0o644); err != nil {
+		if err := os.WriteFile(configInitOut, []byte(defaultConfigYAML), 0o600); err != nil {
 			return err
 		}
 		fmt.Printf("wrote %s\n", configInitOut)

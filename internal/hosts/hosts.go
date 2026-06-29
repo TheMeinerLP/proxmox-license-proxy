@@ -129,6 +129,7 @@ func atomicWrite(file, content string, original []byte) error {
 	_ = original // kept for symmetry / future backup
 
 	tmp := file + ".tmp"
+	//nolint:gosec // G306: preserves the existing mode of /etc/hosts, which is world-readable (0644)
 	if err := os.WriteFile(tmp, []byte(content), mode); err != nil {
 		return fmt.Errorf("write %s (need root?): %w", file, err)
 	}

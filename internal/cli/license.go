@@ -279,7 +279,7 @@ var licenseExportCmd = &cobra.Command{
 			fmt.Println(string(data))
 			return nil
 		}
-		if err := os.WriteFile(licenseExportOut, data, 0o640); err != nil {
+		if err := os.WriteFile(licenseExportOut, data, 0o600); err != nil {
 			return err
 		}
 		fmt.Printf("exported %d licenses to %s\n", len(licenses), licenseExportOut)

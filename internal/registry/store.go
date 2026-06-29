@@ -47,7 +47,9 @@ func (s *Store) Load() (subscription.Registry, error) {
 // the result atomically.
 func (s *Store) mutate(fn func(*subscription.Registry) error) error {
 	if dir := filepath.Dir(s.path); dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// 0750: the registry holds host/license state; no world access. The
+		// package ships /var/lib/pmox as a setgid group dir, which this preserves.
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
 	}
@@ -59,6 +61,7 @@ func (s *Store) mutate(fn func(*subscription.Registry) error) error {
 	defer func() { _ = lock.Unlock() }()
 	// The lock file may be created by either a root-run CLI or the pmox service;
 	// keep it group-writable so both can take the lock on a shared registry.
+	//nolint:gosec // G302: 0660 is required so the pmox group (daemon + root CLI) shares the lock
 	_ = os.Chmod(s.path+".lock", 0o660)
 
 	reg, err := s.Load()
@@ -79,15 +82,19 @@ func (s *Store) save(reg subscription.Registry) error {
 	// Keep the last good copy so a bad edit can be recovered. Best-effort: a
 	// missing file (first write) or backup failure must not block the write.
 	if prev, rerr := os.ReadFile(s.path); rerr == nil {
+		//nolint:gosec // G306: 0660 so the pmox group (daemon + root CLI) shares the registry backup
 		_ = os.WriteFile(s.path+".bak", prev, 0o660)
+		//nolint:gosec // G302: keep the backup group-writable for the shared registry
 		_ = os.Chmod(s.path+".bak", 0o660)
 	}
 	tmp := s.path + ".tmp"
+	//nolint:gosec // G306: 0660 so the pmox group (daemon + root CLI) shares the registry
 	if err := os.WriteFile(tmp, data, 0o660); err != nil {
 		return err
 	}
 	// Pin 0660 regardless of umask so a registry written by root (CLI) stays
 	// writable by the pmox service group, and vice versa, on a shared dir.
+	//nolint:gosec // G302: see comment above - shared group write is required
 	if err := os.Chmod(tmp, 0o660); err != nil {
 		return err
 	}
