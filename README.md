@@ -297,6 +297,22 @@ Versioned, ACME-style **`/api/v1`** (account keys + JWS, RFC 8555-inspired):
 [`docs/api-v1.md`](docs/api-v1.md). The product is at **v2.0.0**; the API is at
 its first version (`v1`) - the two version numbers are independent.
 
+## Upgrading from v1 to v2
+
+v2 consolidates config, the registry and the auto cert under **`/etc/pmox`** (the
+registry was `/var/lib/pmox/registry.json`). Migration is automatic:
+
+- **Packages** (`.deb`/`.rpm`/`.apk`): the postinstall moves the old registry,
+  backup and persisted cert across on upgrade.
+- **Binary / manual installs**: on its next start, `serve` copies a pre-2.0
+  registry from `/var/lib/pmox` to the configured location (it never overwrites
+  existing data). `doctor` warns if an un-migrated registry is found.
+- **Docker**: unaffected - the image pins `PMOX_REGISTRY_FILE=/data/registry.json`.
+
+The registry format is backward-compatible (the new fields are additive), so
+existing subscriptions and approved hosts keep working. To migrate by hand:
+`mv /var/lib/pmox/registry.json* /etc/pmox/`.
+
 ## Development
 
 CI (GitHub Actions) is the source of truth - it runs tests (`-race`),
