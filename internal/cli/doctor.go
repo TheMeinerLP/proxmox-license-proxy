@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"proxmox-license-proxy/internal/config"
 	"proxmox-license-proxy/internal/fileio"
 	"proxmox-license-proxy/internal/hosts"
+	"proxmox-license-proxy/internal/release"
 )
 
 // trustStorePath is where `cert install` / `client install` place the trusted
@@ -64,6 +66,7 @@ var doctorCmd = &cobra.Command{
 			checkHostsEntry(),
 			checkTrustStore(),
 			checkReachability(),
+			checkLatestRelease(cmd.Context()),
 		}
 
 		worst := levelOK
@@ -230,6 +233,28 @@ func checkReachability() check {
 	}
 	_ = conn.Close()
 	return check{level: levelOK, name: "local reachability", detail: "server is listening on " + addr}
+}
+
+// checkLatestRelease compares the running build against the latest GitHub
+// release. It is best-effort: an offline host or a non-release build degrades to
+// INFO rather than failing the diagnostics.
+func checkLatestRelease(ctx context.Context) check {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	info, err := release.NewChecker().Latest(ctx)
+	if err != nil {
+		return check{level: levelInfo, name: "latest release", detail: "update check skipped: " + err.Error()}
+	}
+	if release.IsNewer(build.Version, info.Tag) {
+		return check{
+			level:  levelWarn,
+			name:   "latest release",
+			detail: fmt.Sprintf("a newer release exists: %s (you have %s)", info.Tag, build.Version),
+			hint:   "update via your package manager or " + info.URL,
+		}
+	}
+	return check{level: levelOK, name: "latest release", detail: "running the latest release (" + info.Tag + ")"}
 }
 
 func init() {

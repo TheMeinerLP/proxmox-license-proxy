@@ -214,7 +214,9 @@ hosts (no NAT between them) for it to be meaningful.
 `serve` prints a startup summary (reachable URLs, TLS mode, CA fingerprint and
 next steps) before it starts logging. Stuck? `doctor` runs read-only checks - a
 shadowing binary on PATH, an unreadable registry, an expired/missing TLS cert, a
-missing `/etc/hosts` entry or untrusted CA - and prints a hint for each.
+missing `/etc/hosts` entry or untrusted CA - and prints a hint for each. Both
+`doctor` and `version --check` ask GitHub whether a newer release is out (a
+best-effort, short-timeout call that never blocks the command if offline).
 
 `subscription generate` mints a **lab-only** key: it is format-valid (so the emulation
 works) but deliberately marked - the key carries a visible `1ab` ("lab") signature
