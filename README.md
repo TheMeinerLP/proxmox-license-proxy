@@ -236,6 +236,8 @@ subscription. The easiest path is `subscription generate`.
 and it walks you through it interactively instead of erroring - no need to copy
 ids or keys around:
 
+- `subscription` / `client` (no subcommand) - open a guided menu that lists the
+  actions, runs the one you pick and loops until you choose *quit*
 - `server approve` / `reject` / `block` - multi-select hosts from a list
 - `server rm` - pick the host to remove
 - `subscription show` / `rm` / `set-due` - pick the key (and, for `set-due`, type

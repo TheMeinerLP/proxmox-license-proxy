@@ -39,6 +39,9 @@ var (
 var clientCmd = &cobra.Command{
 	Use:   "client",
 	Short: "Client-side setup for a Proxmox host",
+	Long: "Client-side setup for a Proxmox host. Run without a subcommand on a\n" +
+		"terminal to open a guided menu (install / discover / uninstall).",
+	RunE: menuOrHelp,
 }
 
 var clientInstallCmd = &cobra.Command{

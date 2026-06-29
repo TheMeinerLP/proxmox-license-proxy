@@ -103,6 +103,9 @@ var licenseCmd = &cobra.Command{
 	Use:     "subscription",
 	Aliases: []string{"license", "sub"},
 	Short:   "Manage subscription keys in the registry",
+	Long: "Manage subscription keys in the registry. Run without a subcommand on a\n" +
+		"terminal to open a guided menu (generate / list / show / rm / ...).",
+	RunE: menuOrHelp,
 }
 
 var licenseAddCmd = &cobra.Command{
@@ -403,6 +406,11 @@ var licenseImportCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import subscriptions from a JSON file (upserts by key)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if licenseImportIn == "" && interactiveTTY() {
+			if err := promptInput("File to import subscriptions from", "subscriptions.json", &licenseImportIn); err != nil {
+				return err
+			}
+		}
 		if licenseImportIn == "" {
 			return fmt.Errorf("--in is required")
 		}
