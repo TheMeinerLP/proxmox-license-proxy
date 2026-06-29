@@ -52,6 +52,18 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Append the install guide to the release notes (release-please wrote the
+      # changelog; goreleaser attached the packages above).
+      - name: Append install guide to release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          gh release view "$TAG" --json body -q .body > body.md
+          sed "s|{{TAG}}|$TAG|g; s|{{VERSION}}|$VERSION|g" .github/release-install.md > install.md
+          { cat body.md; echo; echo; cat install.md; } > notes.md
+          gh release edit "$TAG" --notes-file notes.md
 
   # Build + push the multi-arch container image to GHCR.
   docker:
