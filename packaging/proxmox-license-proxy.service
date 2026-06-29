@@ -29,7 +29,10 @@ ProtectControlGroups=true
 ProtectClock=true
 ProtectHostname=true
 ProtectProc=invisible
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# AF_NETLINK is required so the binary can enumerate local interface addresses
+# (Go's net.Interfaces), which the mDNS advertiser needs - without it startup
+# logs "mDNS advertise failed: Could not determine host IP addresses".
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 RestrictNamespaces=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
@@ -38,10 +41,14 @@ MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
-UMask=0077
+# Group-writable (0007) so a root-run CLI and the pmox service can share the
+# registry in /var/lib/pmox (a setgid, group-pmox directory); the app also pins
+# the registry files to 0660 explicitly.
+UMask=0007
 
 # Writable state: the server persists registry.json (auto-registered hosts) here.
 StateDirectory=pmox
+StateDirectoryMode=2770
 ReadWritePaths=/var/lib/pmox
 ReadOnlyPaths=/etc/pmox
 

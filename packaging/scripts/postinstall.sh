@@ -19,9 +19,16 @@ if ! getent passwd pmox >/dev/null 2>&1; then
 fi
 
 # 2) Ownership + permissions on data and config.
+#    /var/lib/pmox is a setgid, group-pmox directory so a root-run CLI and the
+#    pmox service can share the registry: new files inherit group pmox, and the
+#    app pins them to 0660 (group-writable). The recursive chown/chmod also heals
+#    a registry that an earlier root-run CLI left owned by root.
 mkdir -p /var/lib/pmox
 chown -R pmox:pmox /var/lib/pmox
-chmod 0750 /var/lib/pmox
+chmod 2770 /var/lib/pmox
+for f in registry.json registry.json.bak registry.json.lock; do
+    [ -e "/var/lib/pmox/$f" ] && chmod 0660 "/var/lib/pmox/$f"
+done
 chown root:pmox /etc/pmox /etc/pmox/config.yaml 2>/dev/null || true
 chmod 0750 /etc/pmox 2>/dev/null || true
 chmod 0640 /etc/pmox/config.yaml 2>/dev/null || true
