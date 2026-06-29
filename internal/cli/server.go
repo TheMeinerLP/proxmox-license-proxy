@@ -39,11 +39,11 @@ func selectHosts(exclude subscription.Status, verb string, multi bool) ([]string
 	var sel []string
 	if multi {
 		err = huh.NewForm(huh.NewGroup(huh.NewMultiSelect[string]().
-			Title("Select hosts to "+verb).Options(opts...).Value(&sel))).Run()
+			Title("Select hosts to " + verb).Options(opts...).Value(&sel))).Run()
 	} else {
 		var one string
 		err = huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
-			Title("Select a host to "+verb).Options(opts...).Value(&one))).Run()
+			Title("Select a host to " + verb).Options(opts...).Value(&one))).Run()
 		if one != "" {
 			sel = []string{one}
 		}
@@ -201,7 +201,7 @@ var serverRemoveCmd = &cobra.Command{
 		if len(args) == 1 {
 			id = args[0]
 		} else if interactiveTTY() {
-			// status -1 excludes nothing; every host is a removal candidate.
+			// the empty status matches no real host, so every host is offered.
 			picked, err := selectHosts(subscription.Status(""), "remove", false)
 			if err != nil {
 				return err
