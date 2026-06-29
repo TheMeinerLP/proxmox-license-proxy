@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v2.0.0...v2.1.0) (2026-06-29)
+
+
+### Features
+
+* **client:** reuse saved proxy on enroll, repair pre-2.0 upgrade, OS-package completion ([#16](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/16)) ([fcb3bc2](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/fcb3bc2a6fe91e5a968de130f38002363989cc45))
+
+
+### Bug Fixes
+
+* **install:** non-interactive deb install to survive conffile prompts ([#14](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/14)) ([cebcd3d](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/cebcd3d3b9385fa4e5644c82ced36c493505a051))
+
 ## [2.0.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.3.0...v2.0.0) (2026-06-29)
 
 
