@@ -3,6 +3,7 @@ package acme
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 )
@@ -92,17 +93,18 @@ func TestVerifyUnknownAccount(t *testing.T) {
 	_, priv := mustKey(t)
 	jws, _ := Sign(priv, ProtectedHeader{Nonce: "n", URL: "u", KID: "nope"}, nil)
 	_, err := Verify(mustJSON(t, jws), func(string) (ed25519.PublicKey, bool) { return nil, false })
-	if err != ErrUnknownAccount {
+	if !errors.Is(err, ErrUnknownAccount) {
 		t.Fatalf("want ErrUnknownAccount, got %v", err)
 	}
 }
 
 func TestThumbprintStable(t *testing.T) {
 	pub, _ := mustKey(t)
-	j := JWKFromEd25519(pub)
-	if j.Thumbprint() != j.Thumbprint() {
+	// Two JWKs built from the same key must yield the same thumbprint.
+	if JWKFromEd25519(pub).Thumbprint() != JWKFromEd25519(pub).Thumbprint() {
 		t.Error("thumbprint not stable")
 	}
+	j := JWKFromEd25519(pub)
 	got, err := j.Ed25519()
 	if err != nil || !got.Equal(pub) {
 		t.Errorf("roundtrip JWK->key failed: %v", err)
