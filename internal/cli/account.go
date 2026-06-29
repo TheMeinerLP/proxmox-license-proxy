@@ -28,7 +28,7 @@ var accountListCmd = &cobra.Command{
 		}
 		return render(accounts, func() error {
 			if len(accounts) == 0 {
-				fmt.Println("no accounts yet\nhosts create one with `client enroll`")
+				fmt.Println("no accounts yet - a Proxmox host creates one with `client enroll`")
 				return nil
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)

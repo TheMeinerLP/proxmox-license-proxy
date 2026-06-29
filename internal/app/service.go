@@ -7,6 +7,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"proxmox-license-proxy/internal/registry"
@@ -202,7 +203,16 @@ func (s *Service) IssueSubscription(in IssueInput) (subscription.License, error)
 		if !lic.Active() {
 			return subscription.License{}, ErrSubscriptionRevoked
 		}
-		return lic, nil
+		// PVE is socket-licensed: a request for MORE sockets than the existing key
+		// covers must re-issue at the higher tier, since pvesubscription rejects an
+		// under-provisioned key ("wrong number of sockets"). Revoke the old key and
+		// fall through to mint a replacement; otherwise return the assignment as-is.
+		if !needsSocketUpgrade(in, lic) {
+			return lic, nil
+		}
+		if _, err := s.store.SetLicenseStatus(lic.Key, subscription.Revoked); err != nil {
+			return subscription.License{}, err
+		}
 	}
 
 	key, err := subscription.GenerateKey(in.Product, in.Level, in.Sockets)
@@ -226,17 +236,42 @@ func (s *Service) IssueSubscription(in IssueInput) (subscription.License, error)
 	return lic, nil
 }
 
+// needsSocketUpgrade reports whether a PVE re-order asks for more sockets than
+// the account's current key covers, in which case the key must be re-issued at
+// the higher tier. It never downgrades (a smaller request keeps the bigger key).
+func needsSocketUpgrade(in IssueInput, lic subscription.License) bool {
+	if in.Product != "pve" || in.Sockets == "" {
+		return false
+	}
+	want, err := strconv.Atoi(in.Sockets)
+	if err != nil {
+		return false
+	}
+	return want > subscription.KeySockets(lic.Key)
+}
+
 // licenseForAccountProduct finds the subscription an account already holds for a
-// product, so issuance stays idempotent.
+// product, so issuance stays idempotent. It prefers an active assignment (so a
+// re-issue that left an old revoked key behind still resolves to the live one),
+// falling back to a revoked one to signal that re-minting is refused.
 func (s *Service) licenseForAccountProduct(thumbprint, product string) (subscription.License, bool, error) {
 	all, err := s.store.ListLicenses()
 	if err != nil {
 		return subscription.License{}, false, err
 	}
+	var revoked subscription.License
+	haveRevoked := false
 	for _, l := range all {
-		if l.Account == thumbprint && l.Product == product {
+		if l.Account != thumbprint || l.Product != product {
+			continue
+		}
+		if l.Active() {
 			return l, true, nil
 		}
+		revoked, haveRevoked = l, true
+	}
+	if haveRevoked {
+		return revoked, true, nil
 	}
 	return subscription.License{}, false, nil
 }

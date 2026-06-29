@@ -72,10 +72,13 @@ func init() {
 		&cobra.Group{ID: groupSetup, Title: "Setup:"},
 	)
 
-	// Assign each top-level command to a section.
+	// Assign each top-level command to a section. account is a server-side admin
+	// action (approving who may self-issue), so it belongs with the server group;
+	// version/doctor/completion/help stay in cobra's "Additional Commands".
 	serveCmd.GroupID = groupServer
 	licenseCmd.GroupID = groupServer
 	serverCmd.GroupID = groupServer
+	accountCmd.GroupID = groupServer
 	configCmd.GroupID = groupServer
 	statusCmd.GroupID = groupServer
 	offlineCmd.GroupID = groupServer
