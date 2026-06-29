@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"proxmox-license-proxy/internal/fileio"
 )
 
 // Action describes what InstallBinary did.
@@ -41,13 +43,13 @@ func CurrentBinary() (string, error) {
 // InstallBinary copies src to dest atomically (temp file + rename, mode 0755).
 // It reports whether the destination was created, updated, or already current.
 func InstallBinary(src, dest string) (Result, error) {
-	data, err := os.ReadFile(src)
+	data, err := fileio.ReadFile(src)
 	if err != nil {
 		return Result{}, fmt.Errorf("read source binary: %w", err)
 	}
 
 	action := ActionInstalled
-	if existing, err := os.ReadFile(dest); err == nil {
+	if existing, err := fileio.ReadFile(dest); err == nil {
 		if bytes.Equal(existing, data) {
 			return Result{Path: dest, Action: ActionUnchanged}, nil
 		}

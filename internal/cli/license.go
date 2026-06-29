@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/app"
+	"proxmox-license-proxy/internal/fileio"
 	"proxmox-license-proxy/internal/registry"
 	"proxmox-license-proxy/internal/subscription"
 )
@@ -294,7 +295,7 @@ var licenseImportCmd = &cobra.Command{
 		if licenseImportIn == "" {
 			return fmt.Errorf("--in is required")
 		}
-		data, err := os.ReadFile(licenseImportIn)
+		data, err := fileio.ReadFile(licenseImportIn)
 		if err != nil {
 			return err
 		}

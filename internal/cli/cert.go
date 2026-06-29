@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/certs"
+	"proxmox-license-proxy/internal/fileio"
 )
 
 var (
@@ -59,7 +60,7 @@ var certInstallCmd = &cobra.Command{
 				return err
 			}
 		default:
-			certPEM, err = os.ReadFile(certInstall)
+			certPEM, err = fileio.ReadFile(certInstall)
 			if err != nil {
 				return err
 			}

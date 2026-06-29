@@ -14,15 +14,10 @@ linters:
     - gocritic
     - nolintlint # every //nolint must name the linter and carry a justification
   settings:
-    gosec:
-      # Only one blanket exclusion remains: every other finding (md5, TLS
-      # bootstrap, shared-group file modes) is justified inline with a
-      # //nolint:gosec comment at the exact call site - see the code.
-      excludes:
-        # G304: all file paths are operator-supplied config/CLI-flag values on an
-        # admin tool, not attacker input. This is the one systematic pattern where
-        # a scoped exclude beats annotating ~20 trusted read/write call sites.
-        - G304
+    # gosec runs with NO blanket excludes: every finding is either fixed or
+    # justified inline with a //nolint:gosec comment at the call site. Variable
+    # file paths (G304) all go through internal/fileio, which cleans the path and
+    # carries the single audited suppression.
     nolintlint:
       require-explanation: true # a bare //nolint without a reason is rejected
       require-specific: true # //nolint must name the linter, e.g. //nolint:gosec

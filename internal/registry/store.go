@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofrs/flock"
 
+	"proxmox-license-proxy/internal/fileio"
 	"proxmox-license-proxy/internal/subscription"
 )
 
@@ -29,7 +30,7 @@ func NewStore(path string) *Store { return &Store{path: path} }
 
 // Load reads the registry. A missing file yields an empty registry.
 func (s *Store) Load() (subscription.Registry, error) {
-	data, err := os.ReadFile(s.path)
+	data, err := fileio.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return subscription.Registry{}, nil
 	}
@@ -81,7 +82,7 @@ func (s *Store) save(reg subscription.Registry) error {
 	}
 	// Keep the last good copy so a bad edit can be recovered. Best-effort: a
 	// missing file (first write) or backup failure must not block the write.
-	if prev, rerr := os.ReadFile(s.path); rerr == nil {
+	if prev, rerr := fileio.ReadFile(s.path); rerr == nil {
 		//nolint:gosec // G306: 0660 so the pmox group (daemon + root CLI) shares the registry backup
 		_ = os.WriteFile(s.path+".bak", prev, 0o660)
 		//nolint:gosec // G302: keep the backup group-writable for the shared registry

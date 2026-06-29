@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"proxmox-license-proxy/internal/fileio"
 )
 
 const (
@@ -25,7 +27,7 @@ func Enable(file, ip string, names []string, dryRun bool) (string, error) {
 		return "", fmt.Errorf("no hostnames to map")
 	}
 
-	raw, err := os.ReadFile(file)
+	raw, err := fileio.ReadFile(file)
 	if err != nil {
 		return "", err
 	}
@@ -45,7 +47,7 @@ func Enable(file, ip string, names []string, dryRun bool) (string, error) {
 // Disable removes the managed block. With dryRun it returns the resulting
 // content without writing.
 func Disable(file string, dryRun bool) (string, error) {
-	raw, err := os.ReadFile(file)
+	raw, err := fileio.ReadFile(file)
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +60,7 @@ func Disable(file string, dryRun bool) (string, error) {
 
 // Status reports whether the managed block is present and returns it.
 func Status(file string) (bool, string, error) {
-	raw, err := os.ReadFile(file)
+	raw, err := fileio.ReadFile(file)
 	if err != nil {
 		return false, "", err
 	}

@@ -25,6 +25,7 @@ import (
 	"proxmox-license-proxy/internal/app"
 	"proxmox-license-proxy/internal/certs"
 	"proxmox-license-proxy/internal/config"
+	"proxmox-license-proxy/internal/fileio"
 	"proxmox-license-proxy/internal/registry"
 	"proxmox-license-proxy/internal/subscription"
 )
@@ -64,11 +65,11 @@ func (s *Server) setupTLS() error {
 		}
 		s.certPEM, s.keyPEM = cert, key
 	case config.TLSModeFiles:
-		cert, err := os.ReadFile(s.settings.TLS.Cert)
+		cert, err := fileio.ReadFile(s.settings.TLS.Cert)
 		if err != nil {
 			return err
 		}
-		key, err := os.ReadFile(s.settings.TLS.Key)
+		key, err := fileio.ReadFile(s.settings.TLS.Key)
 		if err != nil {
 			return err
 		}
