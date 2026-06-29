@@ -68,6 +68,24 @@ func Status(file string) (bool, string, error) {
 	return block != "", block, nil
 }
 
+// RedirectIP returns the IP the managed block points the subscription host at,
+// or "" when there is no managed block. It lets a client reuse the proxy it was
+// already pointed at (by `client install` / `enroll`) without re-asking.
+func RedirectIP(file string) (string, error) {
+	present, block, err := Status(file)
+	if err != nil || !present {
+		return "", err
+	}
+	for _, line := range strings.Split(block, "\n") {
+		fields := strings.Fields(line)
+		// Skip the markers and blank lines; the host lines are "<ip> <name>".
+		if len(fields) >= 2 && !strings.HasPrefix(fields[0], "#") {
+			return fields[0], nil
+		}
+	}
+	return "", nil
+}
+
 func managedBlock(ip string, names []string) string {
 	var b strings.Builder
 	b.WriteString(beginMarker + "\n")

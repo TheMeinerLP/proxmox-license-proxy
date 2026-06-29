@@ -7,9 +7,12 @@ import (
 	"proxmox-license-proxy/internal/fileio"
 )
 
-// LegacyRegistryPath is where pre-2.0 installs kept the registry, before config,
-// registry and the auto cert were consolidated under /etc/pmox.
-const LegacyRegistryPath = "/var/lib/pmox/registry.json"
+// LegacyDir is where pre-2.0 installs kept their state, before config, registry
+// and the auto cert were consolidated under /etc/pmox.
+const LegacyDir = "/var/lib/pmox"
+
+// LegacyRegistryPath is the pre-2.0 registry file inside LegacyDir.
+const LegacyRegistryPath = LegacyDir + "/registry.json"
 
 // MigrateLegacy copies a pre-2.0 registry (plus its backup and the persisted
 // auto TLS cert) from the old location into newRegistry's directory, but only

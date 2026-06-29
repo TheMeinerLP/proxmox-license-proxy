@@ -1,10 +1,29 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 )
+
+func TestRunClientEnrollRejectsSchemelessServer(t *testing.T) {
+	resetEnrollGlobals()
+	enrollServer = "192.168.68.100" // no scheme
+	cmd := newEnrollFlagCmd()
+	// Mark it as explicitly set so applyEnrollEnvDefaults leaves it alone.
+	if err := cmd.Flags().Set("server", "192.168.68.100"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runClientEnroll(cmd, nil)
+	if err == nil {
+		t.Fatal("expected an error for a scheme-less server URL")
+	}
+	if !strings.Contains(err.Error(), "http://") {
+		t.Errorf("error %q should mention the required scheme", err)
+	}
+}
 
 // newEnrollFlagCmd binds the enroll flags to the package globals exactly like
 // init() does, so applyEnrollEnvDefaults can be exercised against a fresh command.

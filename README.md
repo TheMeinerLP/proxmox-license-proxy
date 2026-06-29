@@ -266,13 +266,26 @@ for the subscription nag. `client enroll`:
 
 1. detects the installed products (PVE/PBS/PMG - a host may run several),
 2. trusts the proxy CA (pinned by fingerprint) and creates an **account key**,
-3. registers an ACME account and **orders a subscription per product**,
+3. registers an ACME account and **orders a subscription per product**
+   (auto-picking the PVE socket tier from the host's CPU sockets, so a
+   2-/4-socket host is not handed a 1-socket key `pvesubscription` rejects),
 4. installs each issued key with the product's own `… subscription set` tool.
 
 ```sh
-# on the Proxmox host
+# on the Proxmox host - first time, point it at the proxy
 proxmox-license-proxy client enroll --server https://192.168.68.100
 ```
+
+You only pass `--server` the first time. `enroll` remembers the proxy via the
+`/etc/hosts` redirect it writes, so later runs need no arguments:
+
+```sh
+proxmox-license-proxy client enroll        # reuses the saved proxy
+```
+
+If the host was never set up at all, a bare `enroll` on a terminal kicks off
+`client install` (discovers the proxy, trusts its cert, writes the redirect) and
+then continues - so one command takes a fresh host from nothing to subscribed.
 
 Issuance is gated on the **account**, not a guessed host id. A new account is
 `PENDING` until an admin approves it (or it registered from an `auto_approve`

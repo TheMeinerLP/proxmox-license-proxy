@@ -16,6 +16,26 @@ func tempHosts(t *testing.T, content string) string {
 	return p
 }
 
+func TestRedirectIP(t *testing.T) {
+	// No managed block yet -> empty, no error.
+	p := tempHosts(t, "127.0.0.1 localhost\n")
+	if ip, err := RedirectIP(p); err != nil || ip != "" {
+		t.Fatalf("RedirectIP without block = %q, %v; want \"\", nil", ip, err)
+	}
+
+	// After Enable, RedirectIP returns the IP the block points at.
+	if _, err := Enable(p, "10.0.0.5", []string{"shop.proxmox.com"}, false); err != nil {
+		t.Fatal(err)
+	}
+	ip, err := RedirectIP(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ip != "10.0.0.5" {
+		t.Fatalf("RedirectIP = %q, want 10.0.0.5", ip)
+	}
+}
+
 func TestEnableDryRunDoesNotWrite(t *testing.T) {
 	p := tempHosts(t, "127.0.0.1 localhost\n")
 	out, err := Enable(p, "10.0.0.5", []string{"shop.proxmox.com"}, true)
