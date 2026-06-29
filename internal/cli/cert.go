@@ -35,7 +35,7 @@ var certGenerateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// On a terminal, confirm the hostnames and validity instead of silently
 		// using flag defaults; passing --host/--days skips the matching prompt.
-		if interactiveTTY() && !(cmd.Flags().Changed("host") && cmd.Flags().Changed("days")) {
+		if interactiveTTY() && (!cmd.Flags().Changed("host") || !cmd.Flags().Changed("days")) {
 			hostsCSV := strings.Join(certHosts, ", ")
 			daysStr := strconv.Itoa(certDays)
 			fields := []huh.Field{}
