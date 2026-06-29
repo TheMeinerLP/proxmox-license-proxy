@@ -1,0 +1,125 @@
+# GoReleaser configuration. https://goreleaser.com
+# Build a snapshot locally with: goreleaser release --snapshot --clean
+# In CI, Release Please creates the tag/release first, then GoReleaser uploads
+# the binaries + Linux packages to that existing release (release.mode below).
+version: 2
+
+project_name: proxmox-license-proxy
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: proxmox-license-proxy
+    main: .
+    binary: proxmox-license-proxy
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  # Default archive format is tar.gz on the unix targets we build (linux/darwin).
+  - id: default
+    ids:
+      - proxmox-license-proxy
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE*
+      - README*
+      # Ship the unit + sample config so manual installers have everything.
+      - src: packaging/proxmox-license-proxy.service
+        dst: contrib/systemd
+      - src: packaging/config.yaml
+        dst: contrib
+
+nfpms:
+  - id: proxmox-license-proxy
+    package_name: proxmox-license-proxy
+    ids:
+      - proxmox-license-proxy
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    maintainer: "TheMeinerLP <meinerlpserver@gmail.com>"
+    vendor: "TheMeinerLP"
+    homepage: "https://github.com/TheMeinerLP/proxmox-license-proxy"
+    description: |-
+      Proxmox subscription endpoint emulator and client CLI for labs and homelabs.
+      The server (`proxmox-license-proxy serve`) answers the Proxmox verify.php
+      check locally; the same binary prepares Proxmox hosts.
+    license: "MIT"
+    section: "net"
+    priority: optional
+    dependencies:
+      - ca-certificates
+    overrides:
+      deb:
+        dependencies:
+          - ca-certificates
+          - adduser
+      rpm:
+        dependencies:
+          - ca-certificates
+          - shadow-utils
+      apk:
+        dependencies:
+          - ca-certificates
+          - shadow
+    contents:
+      - src: packaging/proxmox-license-proxy.service
+        dst: /usr/lib/systemd/system/proxmox-license-proxy.service
+        file_info:
+          mode: 0644
+      - src: packaging/config.yaml
+        dst: /etc/pmox/config.yaml
+        type: "config|noreplace"
+        file_info:
+          mode: 0640
+          owner: root
+          group: pmox
+      - dst: /etc/pmox
+        type: dir
+        file_info:
+          mode: 0750
+          owner: root
+          group: pmox
+      - dst: /var/lib/pmox
+        type: dir
+        file_info:
+          mode: 0750
+          owner: pmox
+          group: pmox
+    scripts:
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+      postremove: packaging/scripts/postremove.sh
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  # Release Please owns the changelog (CHANGELOG.md + the release body).
+  disable: true
+
+release:
+  # The release already exists (created by Release Please). Keep its notes and
+  # just attach the build artifacts.
+  mode: keep-existing
+  footer: |
+    > For private / internal lab use only. See the README for the warning.

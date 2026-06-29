@@ -1,0 +1,22 @@
+# /etc/pmox/config.yaml — default config for the systemd service.
+# Preserved across package upgrades (marked config|noreplace).
+# Any value can be overridden with a PMOX_* environment variable.
+
+listen: ":443"
+log: "info" # debug | info | warn | error
+
+# The service user (pmox) writes the registry here; /var/lib/pmox is created
+# and owned by the package. Do not move this under /etc (read-only for the unit).
+registry_file: "/var/lib/pmox/registry.json"
+
+tls:
+  mode: "auto" # auto (self-signed) | files | http
+  # cert: "/etc/pmox/tls.crt"
+  # key:  "/etc/pmox/tls.key"
+  names:
+    - "shop.proxmox.com"
+
+hosts:
+  file: "/etc/hosts"
+  names:
+    - "shop.proxmox.com"
