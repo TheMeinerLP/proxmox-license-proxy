@@ -151,10 +151,19 @@ download "$URL" "$TMP/$FILE" || err "download failed: $URL"
 info "installing via ${FMT}"
 case "$FMT" in
 deb)
+	# When this script is piped (curl ... | sh), stdin is the pipe, so an
+	# interactive dpkg conffile prompt (e.g. a locally-edited /etc/pmox/config.yaml
+	# vs. the packaged one) reads EOF and aborts with "end of file on stdin at
+	# conffile prompt". Run non-interactively and keep the existing config by
+	# default (--force-confold/confdef); the new version lands as *.dpkg-dist.
 	if command -v apt-get >/dev/null 2>&1; then
-		$SUDO apt-get install -y "$TMP/$FILE"
+		$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+			-o Dpkg::Options::=--force-confold \
+			-o Dpkg::Options::=--force-confdef \
+			"$TMP/$FILE"
 	else
-		$SUDO dpkg -i "$TMP/$FILE"
+		$SUDO env DEBIAN_FRONTEND=noninteractive \
+			dpkg --force-confold --force-confdef -i "$TMP/$FILE"
 	fi
 	;;
 rpm)
