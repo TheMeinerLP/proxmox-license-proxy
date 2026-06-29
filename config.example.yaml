@@ -1,0 +1,21 @@
+# proxmox-license-proxy configuration
+# Copy to config.yaml (or /etc/pmox/config.yaml) and adjust.
+# Every key can also be set via PMOX_* env vars, e.g. PMOX_LISTEN=":8443".
+# Generate this file at runtime with: proxmox-license-proxy config init
+
+listen: ":443"
+log: "info" # debug | info | warn | error
+registry_file: "/etc/pmox/registry.json"
+
+tls:
+  mode: "auto" # auto (self-signed) | files | http (plaintext, behind a proxy)
+  # cert: "/etc/pmox/tls.crt"
+  # key:  "/etc/pmox/tls.key"
+  names:
+    - "shop.proxmox.com"
+
+hosts:
+  file: "/etc/hosts"
+  # ip: "127.0.0.1"   # proxy IP the names are pointed at
+  names:
+    - "shop.proxmox.com"
