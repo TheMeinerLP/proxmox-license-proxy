@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.1.0...v1.2.0) (2026-06-29)
+
+
+### Features
+
+* **license:** ask for PVE CPU socket count when generating ([dcff1a9](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/dcff1a9b33be0a72fde2b9e40525e4a7f626cfc8))
+
 ## [1.1.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.0.0...v1.1.0) (2026-06-29)
 
 
