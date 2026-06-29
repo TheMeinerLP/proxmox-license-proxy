@@ -28,3 +28,10 @@ auto_approve:
   private: true # trust RFC1918 / ULA / loopback / link-local (homelab default)
   # networks:    # extra trusted CIDRs on top of (or instead of) `private`
   #   - "100.64.0.0/10"   # e.g. a Tailscale/CGNAT range
+
+# Versioned REST API (/api/v1). The ACME-style client endpoints (account keys +
+# JWS) are always on; set admin_token to enable the /api/v1/admin/* management
+# endpoints (host/account approval, subscription revocation) behind a bearer
+# token. Leave empty to keep admin management CLI-only.
+api:
+  admin_token: "" # e.g. a long random string; sent as `Authorization: Bearer <token>`

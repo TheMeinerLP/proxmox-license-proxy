@@ -207,9 +207,9 @@ hosts (no NAT between them) for it to be meaningful.
 ## Commands
 
 `serve`, `status`, `doctor`, `subscription {add,generate,list,show,rm,set-due,export,import}`
-- `server {list,pending,approve,reject,block,rm}`, `client {install,uninstall,discover}`
-- `cert {generate,install}`, `hosts {enable,disable,status}`
-- `config {init,show,path}`, `version`, `completion`
+- `server {list,pending,approve,reject,block,rm}`, `account {list,approve,block}`
+- `client {install,enroll,uninstall,discover}`, `cert {generate,install}`
+- `hosts {enable,disable,status}`, `config {init,show,path}`, `version`, `completion`
 
 `serve` prints a startup summary (reachable URLs, TLS mode, CA fingerprint and
 next steps) before it starts logging. Stuck? `doctor` runs read-only checks - a
@@ -257,10 +257,45 @@ Destructive commands (`subscription rm`, `server rm`, `hosts disable`) prompt fo
 confirmation; pass `-y`/`--yes` to skip it. The registry keeps a `.bak` of the
 previous state on every write.
 
+## Automatic enrollment (ACME-style)
+
+Instead of minting a key by hand, a Proxmox host can enrol itself, like certbot
+for the subscription nag. `client enroll`:
+
+1. detects the installed products (PVE/PBS/PMG - a host may run several),
+2. trusts the proxy CA (pinned by fingerprint) and creates an **account key**,
+3. registers an ACME account and **orders a subscription per product**,
+4. installs each issued key with the product's own `… subscription set` tool.
+
+```sh
+# on the Proxmox host
+proxmox-license-proxy client enroll --server https://192.168.68.100
+```
+
+Issuance is gated on the **account**, not a guessed host id. A new account is
+`PENDING` until an admin approves it (or it registered from an `auto_approve`
+network); `enroll` prints the account id and exits, and you re-run it after:
+
+```sh
+# on the PROXY host
+proxmox-license-proxy account list
+proxmox-license-proxy account approve <thumbprint>
+```
+
+The server can **invalidate** a subscription at any time (`server`/admin API or
+the account itself); the host drops to unsubscribed on its next check.
+
 ## REST API
 
-`POST /modules/servers/licensing/verify.php`, `GET /ca.crt`, `GET /healthz` -
-`GET /readyz`, `GET /status`, `/api/subscriptions`, `/api/servers`
+Legacy (unversioned): `POST /modules/servers/licensing/verify.php`, `GET /ca.crt`,
+`GET /healthz`, `GET /readyz`, `GET /status`, `/api/subscriptions`, `/api/servers`.
+
+Versioned, ACME-style **`/api/v1`** (account keys + JWS, RFC 8555-inspired):
+`GET /directory`, `GET /new-nonce`, `POST /new-account`, `POST /new-order`
+(issues keys), `POST /subscriptions`, `POST /revoke`; plus a bearer-token
+`/api/v1/admin/*` for account/host approval and subscription revocation. See
+[`docs/api-v1.md`](docs/api-v1.md). The product is at **v2.0.0**; the API is at
+its first version (`v1`) - the two version numbers are independent.
 
 ## Development
 
