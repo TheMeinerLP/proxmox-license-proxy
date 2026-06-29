@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.3.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.2.0...v1.3.0) (2026-06-29)
+
+
+### Features
+
+* **cli:** check GitHub for newer releases (version --check, doctor) ([5d14729](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/5d14729d1302b94309af3b0a64aa538727b7c7a2))
+* **cli:** guide subscription, server and config commands interactively ([3b05afb](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/3b05afbc294aa9dcf719b6ea21f4d967ecb246f7))
+* **cli:** serve summary, doctor command, actionable empty states, guided cert/hosts ([59a1955](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/59a19556b59a077d30eddeadddca3e9a97f49f12))
+* **completion:** annotate key and host completions with status ([0721bee](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/0721bee1ea6ee054a83c010852be7a8c0c97b1aa))
+
+
+### Bug Fixes
+
+* **deps:** update module golang.org/x/mod to v0.37.0 ([#11](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/11)) ([552682c](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/552682c708955c50bc02db75445df920a0f7f731))
+* **install:** report version from /usr/bin and warn on PATH shadowing ([41891aa](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/41891aac8849e32d771bcfd18035ac235da24929))
+* **serve:** persist the auto TLS certificate across restarts ([448d071](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/448d071080931e55ee4af1d60eb44409821c1e48))
+
+
+### Code Refactoring
+
+* **cli:** rename license to subscription (Proxmox terminology) ([71ed028](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/71ed0288e0c94d44fdd85e6e527a7cfa0c5dd273))
+* reduce duplication and harden the release/version comparison ([255ea27](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/255ea27e63501a5c1d813d36a70a32f0b5bc7193))
+
 ## [1.2.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.1.0...v1.2.0) (2026-06-29)
 
 
