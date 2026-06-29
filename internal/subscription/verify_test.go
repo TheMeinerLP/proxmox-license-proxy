@@ -24,9 +24,13 @@ func TestChallengeHash_GoldenVector(t *testing.T) {
 func TestValidKey(t *testing.T) {
 	cases := map[string]bool{
 		"pbsc-1234567890":  true,
-		"pvep-abcdef0123":  true,
+		"pve1p-abcdef0123": true, // PVE: socket digit + level
+		"pve8c-0011223344": true, // PVE: 8 sockets
 		"pmgs-0011223344":  true,
 		"pbsb-00112233ff":  true,
+		"pvep-abcdef0123":  false, // PVE without socket digit
+		"pve3c-1234567890": false, // invalid socket count (only 1/2/4/8)
+		"pbs1c-1234567890": false, // PBS must NOT carry a socket digit
 		"pbsc-123456789":   false, // 9 hex
 		"pbsc-12345678901": false, // 11 hex
 		"pbsx-1234567890":  false, // invalid level
@@ -48,7 +52,7 @@ func TestDescribe(t *testing.T) {
 		key, product, name, level string
 	}{
 		{"pbsc-1234567890", "pbs", "Proxmox Backup Server Community Subscription", "Community"},
-		{"pvep-abcdef0123", "pve", "Proxmox VE Premium Subscription", "Premium"},
+		{"pve1p-abcdef0123", "pve", "Proxmox VE Premium Subscription", "Premium"},
 		{"pmgs-0011223344", "pmg", "Proxmox Mail Gateway Standard Subscription", "Standard"},
 		{"abc", "", "Proxmox Subscription", ""},
 	}

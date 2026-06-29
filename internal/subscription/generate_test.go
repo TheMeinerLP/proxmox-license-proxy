@@ -22,6 +22,20 @@ func TestGenerateKey(t *testing.T) {
 		}
 	}
 
+	// PVE keys must carry a socket-count digit (pve[1248][cbsp]-...), otherwise
+	// the Proxmox API rejects them with a regex error. PBS/PMG must not.
+	pve, _ := GenerateKey("pve", "s")
+	if !strings.HasPrefix(pve, "pve1s-") {
+		t.Errorf("PVE key %q must start with socket digit + level (pve1s-)", pve)
+	}
+	if ValidKey("pvec-1ab0000000") {
+		t.Error("a PVE key without a socket digit must be invalid")
+	}
+	pbs, _ := GenerateKey("pbs", "s")
+	if !strings.HasPrefix(pbs, "pbss-") {
+		t.Errorf("PBS key %q must not carry a socket digit (pbss-)", pbs)
+	}
+
 	// Default level is community.
 	if _, err := GenerateKey("pve", ""); err != nil {
 		t.Errorf("default level should work: %v", err)
@@ -47,7 +61,7 @@ func TestIsLabKey(t *testing.T) {
 	if IsLabKey("pbsc-1234567890") {
 		t.Error("a normal key must not be reported as a lab key")
 	}
-	if !IsLabKey("pvec-1ab0000000") {
+	if !IsLabKey("pve1c-1ab0000000") {
 		t.Error("a 1ab-signed key must be reported as a lab key")
 	}
 }
