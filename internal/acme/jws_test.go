@@ -101,7 +101,9 @@ func TestVerifyUnknownAccount(t *testing.T) {
 func TestThumbprintStable(t *testing.T) {
 	pub, _ := mustKey(t)
 	// Two JWKs built from the same key must yield the same thumbprint.
-	if JWKFromEd25519(pub).Thumbprint() != JWKFromEd25519(pub).Thumbprint() {
+	a := JWKFromEd25519(pub).Thumbprint()
+	b := JWKFromEd25519(pub).Thumbprint()
+	if a != b {
 		t.Error("thumbprint not stable")
 	}
 	j := JWKFromEd25519(pub)
