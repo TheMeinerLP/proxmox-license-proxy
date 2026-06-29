@@ -86,7 +86,7 @@ func TestV1IssuanceFlow(t *testing.T) {
 	jwk := acme.JWKFromEd25519(pub)
 	const serverid = "AABBCCDDEEFF"
 
-	// 1) Register account (jwk header).
+	// 1) Register account (jwk header). It starts PENDING (no auto-approve).
 	rec := signedPOST(t, h, priv, jwk, "/api/v1/new-account", true, nonce(t, h),
 		map[string]string{"serverid": serverid})
 	if rec.Code != http.StatusCreated {
@@ -103,13 +103,13 @@ func TestV1IssuanceFlow(t *testing.T) {
 		t.Fatalf("want pending before approval, got %v", got)
 	}
 
-	// 3) Admin approves the host.
-	areq := httptest.NewRequest(http.MethodPost, testBase+"/api/v1/admin/hosts/"+serverid+"/approve", nil)
+	// 3) Admin approves the ACME account (the issuance gate).
+	areq := httptest.NewRequest(http.MethodPost, testBase+"/api/v1/admin/accounts/"+jwk.Thumbprint()+"/approve", nil)
 	areq.Header.Set("Authorization", "Bearer secret")
 	arec := httptest.NewRecorder()
 	h.ServeHTTP(arec, areq)
 	if arec.Code != http.StatusOK {
-		t.Fatalf("admin approve: %d %s", arec.Code, arec.Body)
+		t.Fatalf("admin approve account: %d %s", arec.Code, arec.Body)
 	}
 
 	// 4) Order again -> issued.

@@ -11,8 +11,13 @@ type Account struct {
 	// PublicKey is the base64url-encoded raw Ed25519 public key (32 bytes), used
 	// to verify the account's JWS signatures.
 	PublicKey string `json:"publicKey" yaml:"publicKey"`
-	// ServerID is the Proxmox host this account enrolled for (the verify "dir").
-	ServerID  string `json:"serverid,omitempty" yaml:"serverid,omitempty"`
-	Contact   string `json:"contact,omitempty" yaml:"contact,omitempty"`
+	// ServerID is the Proxmox host this account enrolled for (the verify "dir"),
+	// as reported by the client. Informational - verify.php matches by key.
+	ServerID string `json:"serverid,omitempty" yaml:"serverid,omitempty"`
+	Contact  string `json:"contact,omitempty" yaml:"contact,omitempty"`
+	// Status gates self-issuance, like host approval but for the ACME identity:
+	// an APPROVED account may issue subscriptions; PENDING waits for an admin (or
+	// the auto-approve-by-IP policy); BLOCKED is refused.
+	Status    Status `json:"status" yaml:"status"`
 	CreatedAt string `json:"createdAt" yaml:"createdAt"`
 }

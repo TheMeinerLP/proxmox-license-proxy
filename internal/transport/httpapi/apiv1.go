@@ -30,6 +30,9 @@ func (s *Server) routesV1(r chi.Router) {
 	r.Post("/revoke", s.v1Revoke)
 
 	r.Route("/admin", func(r chi.Router) {
+		r.Get("/accounts", s.v1AdminListAccounts)
+		r.Post("/accounts/{thumbprint}/approve", s.v1AdminApproveAccount)
+		r.Post("/accounts/{thumbprint}/block", s.v1AdminBlockAccount)
 		r.Get("/hosts", s.v1AdminListHosts)
 		r.Post("/hosts/{id}/approve", s.v1AdminApproveHost)
 		r.Post("/hosts/{id}/block", s.v1AdminBlockHost)
@@ -141,7 +144,8 @@ func (s *Server) v1NewAccount(w nethttp.ResponseWriter, r *nethttp.Request) {
 	var req newAccountReq
 	_ = json.Unmarshal(v.Payload, &req)
 
-	acc, err := s.app.RegisterAccount(v.Thumbprint, v.JWK.X, req.ServerID, req.Contact)
+	autoApprove := s.settings.AutoApprove.Allows(clientAddr(r))
+	acc, err := s.app.RegisterAccount(v.Thumbprint, v.JWK.X, req.ServerID, req.Contact, autoApprove)
 	if err != nil {
 		s.problem(w, nethttp.StatusBadRequest, err.Error())
 		return
@@ -150,7 +154,7 @@ func (s *Server) v1NewAccount(w nethttp.ResponseWriter, r *nethttp.Request) {
 	writeJSON(w, nethttp.StatusCreated, map[string]string{
 		"thumbprint": acc.Thumbprint,
 		"serverid":   acc.ServerID,
-		"status":     "valid",
+		"status":     string(acc.Status),
 	})
 }
 
@@ -184,18 +188,16 @@ func (s *Server) v1NewOrder(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	autoApprove := s.settings.AutoApprove.Allows(clientAddr(r))
 	var issued []subscriptionDTO
 	var pending []string
 	problems := map[string]string{}
 	for _, product := range req.Products {
 		lic, err := s.app.IssueSubscription(app.IssueInput{
-			Thumbprint:  v.Thumbprint,
-			ServerID:    req.ServerID,
-			Product:     product,
-			Level:       req.Level,
-			Sockets:     req.Sockets,
-			AutoApprove: autoApprove,
+			Thumbprint: v.Thumbprint,
+			ServerID:   req.ServerID,
+			Product:    product,
+			Level:      req.Level,
+			Sockets:    req.Sockets,
 		})
 		switch {
 		case err == nil:
@@ -203,7 +205,7 @@ func (s *Server) v1NewOrder(w nethttp.ResponseWriter, r *nethttp.Request) {
 				Product: lic.Product, Key: lic.Key, Status: string(lic.Status),
 				ProductName: lic.ProductName, NextDueDate: lic.NextDueDate,
 			})
-		case errors.Is(err, app.ErrHostNotApproved):
+		case errors.Is(err, app.ErrAccountNotApproved):
 			pending = append(pending, product)
 		default:
 			problems[product] = err.Error()
@@ -298,6 +300,43 @@ func (s *Server) requireAdmin(w nethttp.ResponseWriter, r *nethttp.Request) bool
 		return false
 	}
 	return true
+}
+
+func (s *Server) v1AdminListAccounts(w nethttp.ResponseWriter, r *nethttp.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	accounts, err := s.store.ListAccounts()
+	if err != nil {
+		nethttp.Error(w, err.Error(), nethttp.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, nethttp.StatusOK, accounts)
+}
+
+func (s *Server) v1AdminApproveAccount(w nethttp.ResponseWriter, r *nethttp.Request) {
+	s.adminSetAccountStatus(w, r, subscription.Approved)
+}
+
+func (s *Server) v1AdminBlockAccount(w nethttp.ResponseWriter, r *nethttp.Request) {
+	s.adminSetAccountStatus(w, r, subscription.Blocked)
+}
+
+func (s *Server) adminSetAccountStatus(w nethttp.ResponseWriter, r *nethttp.Request, status subscription.Status) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	thumb := chi.URLParam(r, "thumbprint")
+	found, err := s.store.SetAccountStatus(thumb, status)
+	if err != nil {
+		nethttp.Error(w, err.Error(), nethttp.StatusInternalServerError)
+		return
+	}
+	if !found {
+		nethttp.Error(w, "account not found", nethttp.StatusNotFound)
+		return
+	}
+	writeJSON(w, nethttp.StatusOK, map[string]string{"thumbprint": thumb, "status": string(status)})
 }
 
 func (s *Server) v1AdminListHosts(w nethttp.ResponseWriter, r *nethttp.Request) {

@@ -230,6 +230,30 @@ func (s *Store) GetAccount(thumbprint string) (subscription.Account, bool, error
 	return subscription.Account{}, false, nil
 }
 
+// ListAccounts returns all registered ACME accounts.
+func (s *Store) ListAccounts() ([]subscription.Account, error) {
+	reg, err := s.Load()
+	if err != nil {
+		return nil, err
+	}
+	return reg.Accounts, nil
+}
+
+// SetAccountStatus changes an account's status. The bool reports whether it existed.
+func (s *Store) SetAccountStatus(thumbprint string, status subscription.Status) (bool, error) {
+	found := false
+	err := s.mutate(func(reg *subscription.Registry) error {
+		for i := range reg.Accounts {
+			if reg.Accounts[i].Thumbprint == thumbprint {
+				reg.Accounts[i].Status = status
+				found = true
+			}
+		}
+		return nil
+	})
+	return found, err
+}
+
 // UpsertServer records a host contact: new hosts are created as PENDING, known
 // hosts get their LastSeen (and key/product) refreshed. It returns the current
 // entry so the caller can read the host's status.

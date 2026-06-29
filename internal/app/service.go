@@ -18,9 +18,11 @@ const dateLayout = "2006-01-02"
 // Sentinel errors for the self-service issuance flow, so the transport can map
 // them to the right status (e.g. 403 for a host awaiting approval).
 var (
-	// ErrHostNotApproved means the host is registered but not yet approved, so
-	// no subscription is issued. The ACME client polls until an admin approves.
-	ErrHostNotApproved = errors.New("host is not approved yet")
+	// ErrAccountNotApproved means the ACME account is registered but not yet
+	// approved, so no subscription is issued. The client polls (Let's-Encrypt
+	// style) until an admin approves the account, or the auto-approve-by-IP
+	// policy approves it on registration.
+	ErrAccountNotApproved = errors.New("account is not approved yet")
 	// ErrSubscriptionRevoked means a subscription for this host/product exists
 	// but was invalidated by an operator; the client must not silently re-issue.
 	ErrSubscriptionRevoked = errors.New("subscription was revoked by an operator")
@@ -136,20 +138,28 @@ func (s *Service) GenerateLicense(product, level, sockets string, store bool) (s
 
 // RegisterAccount stores (or refreshes) an ACME account: its JWK thumbprint is
 // the id, publicKey is the base64url Ed25519 key used to verify its signatures.
-func (s *Service) RegisterAccount(thumbprint, publicKey, serverid, contact string) (subscription.Account, error) {
+// A new account starts APPROVED when autoApprove is set (it registered from a
+// trusted network), otherwise PENDING until an admin approves it. An existing
+// account keeps its status and creation time on re-registration.
+func (s *Service) RegisterAccount(thumbprint, publicKey, serverid, contact string, autoApprove bool) (subscription.Account, error) {
 	if thumbprint == "" || publicKey == "" {
 		return subscription.Account{}, fmt.Errorf("account thumbprint and public key are required")
+	}
+	status := subscription.Pending
+	if autoApprove {
+		status = subscription.Approved
 	}
 	acc := subscription.Account{
 		Thumbprint: thumbprint,
 		PublicKey:  publicKey,
 		ServerID:   serverid,
 		Contact:    contact,
+		Status:     status,
 		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
 	}
-	// Preserve the original CreatedAt on re-registration.
 	if existing, ok, _ := s.store.GetAccount(thumbprint); ok {
 		acc.CreatedAt = existing.CreatedAt
+		acc.Status = existing.Status // an admin decision is not undone by re-registration
 	}
 	if err := s.store.UpsertAccount(acc); err != nil {
 		return subscription.Account{}, err
@@ -159,38 +169,34 @@ func (s *Service) RegisterAccount(thumbprint, publicKey, serverid, contact strin
 
 // IssueInput is a self-service subscription request from a host's ACME account.
 type IssueInput struct {
-	Thumbprint  string // owning account
-	ServerID    string // the Proxmox host (verify "dir")
-	Product     string // pve | pbs | pmg
-	Level       string // optional, default community
-	Sockets     string // PVE only
-	AutoApprove bool   // host contacted from a trusted network (transport-decided)
+	Thumbprint string // owning account (must be APPROVED)
+	ServerID   string // the Proxmox host (verify "dir"), as reported by the client
+	Product    string // pve | pbs | pmg
+	Level      string // optional, default community
+	Sockets    string // PVE only
 }
 
-// IssueSubscription is the Let's-Encrypt-style issuance: it (auto-)registers the
-// host, and only mints a subscription once the host is approved. It is
-// idempotent - an existing active subscription for the host/product is returned
-// as-is, and a revoked one is refused rather than silently re-minted.
+// IssueSubscription is the Let's-Encrypt-style issuance: an APPROVED account may
+// mint a subscription for a product. It is idempotent - an existing active
+// subscription for the account/product is returned as-is, and a revoked one is
+// refused rather than silently re-minted. The gate is the ACME account, not the
+// host: the host's real serverid is only known once it contacts verify.php,
+// which then honours the issued key by value.
 func (s *Service) IssueSubscription(in IssueInput) (subscription.License, error) {
-	if in.ServerID == "" {
-		return subscription.License{}, fmt.Errorf("serverid is required")
-	}
 	if !subscription.ProductCode(in.Product) {
 		return subscription.License{}, fmt.Errorf("unknown product %q (want pve, pbs or pmg)", in.Product)
 	}
 
-	// Register/refresh the host so it shows up for approval; auto-approve applies
-	// the trusted-network policy just like verify.php does.
-	srv, err := s.store.UpsertServer(in.ServerID, "", in.Product, in.AutoApprove)
+	acc, ok, err := s.store.GetAccount(in.Thumbprint)
 	if err != nil {
 		return subscription.License{}, err
 	}
-	if srv.Status != subscription.Approved {
-		return subscription.License{}, ErrHostNotApproved
+	if !ok || acc.Status != subscription.Approved {
+		return subscription.License{}, ErrAccountNotApproved
 	}
 
-	// Idempotent: reuse an existing assignment for this host+product.
-	if lic, ok, err := s.store.GetLicenseFor(in.ServerID, in.Product); err != nil {
+	// Idempotent: reuse an existing assignment for this account+product.
+	if lic, ok, err := s.licenseForAccountProduct(in.Thumbprint, in.Product); err != nil {
 		return subscription.License{}, err
 	} else if ok {
 		if !lic.Active() {
@@ -218,6 +224,21 @@ func (s *Service) IssueSubscription(in IssueInput) (subscription.License, error)
 		return subscription.License{}, err
 	}
 	return lic, nil
+}
+
+// licenseForAccountProduct finds the subscription an account already holds for a
+// product, so issuance stays idempotent.
+func (s *Service) licenseForAccountProduct(thumbprint, product string) (subscription.License, bool, error) {
+	all, err := s.store.ListLicenses()
+	if err != nil {
+		return subscription.License{}, false, err
+	}
+	for _, l := range all {
+		if l.Account == thumbprint && l.Product == product {
+			return l, true, nil
+		}
+	}
+	return subscription.License{}, false, nil
 }
 
 // RevokeSubscription invalidates a subscription so verify.php stops honouring it.
@@ -269,7 +290,28 @@ func (s *Service) Verify(serverid, key, token string, autoApprove bool) VerifyRe
 		}
 	}
 
-	if serverid == "" || hostStatus != subscription.Approved {
+	lic, licKnown, _ := s.store.GetLicense(key)
+
+	// A known-but-revoked (or otherwise denied) subscription is always inactive,
+	// so an operator can invalidate a key Let's-Encrypt style and have the host
+	// drop to unsubscribed on its next check - even on an approved host.
+	if licKnown && !lic.Active() {
+		return VerifyResult{
+			Response: subscription.Response{
+				Status:     "invalid",
+				ServerID:   serverid,
+				Message:    "subscription " + string(lic.Status),
+				CheckToken: token,
+			},
+			HostStatus: hostStatus,
+		}
+	}
+
+	// Authorized when the host is approved, OR the key is an active subscription
+	// this server issued via the ACME API (the account was the gate at issuance,
+	// so the key is honoured by value regardless of host-approval state).
+	acmeIssued := licKnown && lic.Account != ""
+	if serverid == "" || (hostStatus != subscription.Approved && !acmeIssued) {
 		return VerifyResult{
 			Response: subscription.Response{
 				Status:     "invalid",
@@ -285,21 +327,7 @@ func (s *Service) Verify(serverid, key, token string, autoApprove bool) VerifyRe
 	regDate := time.Now().Format(dateLayout)
 	dueDate := time.Now().AddDate(1, 0, 0).Format(dateLayout)
 	_, productName, _ := subscription.Describe(key)
-	if lic, ok, _ := s.store.GetLicense(key); ok {
-		// A known-but-revoked (or otherwise denied) subscription must report
-		// inactive, so an operator can invalidate a key Let's-Encrypt style and
-		// have the host drop to unsubscribed on its next check.
-		if !lic.Active() {
-			return VerifyResult{
-				Response: subscription.Response{
-					Status:     "invalid",
-					ServerID:   serverid,
-					Message:    "subscription " + string(lic.Status),
-					CheckToken: token,
-				},
-				HostStatus: hostStatus,
-			}
-		}
+	if licKnown {
 		productName = lic.ProductName
 		if lic.RegDate != "" {
 			regDate = lic.RegDate
