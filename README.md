@@ -10,7 +10,7 @@ homelabs**, and doubles as the client tool to point a Proxmox host at it.
 > **For private / internal test environments only.** This tool does not contact
 > Proxmox' real servers and changes nothing on a host unless you explicitly run the
 > client steps there. Removing the subscription nag on a *production* host bypasses a
-> commercial license - production deployments need a real Proxmox subscription.
+> commercial subscription - production deployments need a real Proxmox subscription.
 
 ## How it works
 
@@ -21,7 +21,13 @@ valid response locally. Point `shop.proxmox.com` at the proxy, trust its
 certificate, and Proxmox writes `status = active`.
 
 Hosts that contact the proxy are **auto-registered as pending** and only become
-`active` once an admin **approves** them.
+`active` once an admin **approves** them (or via `auto_approve`).
+
+> **Scope:** this only fakes the local subscription **status** (the nag screen and
+> `status = active`). It does **not** unlock the Proxmox **enterprise apt
+> repository** - that is gated server-side by Proxmox (subscription key + IP
+> checks at `enterprise.proxmox.com`), which a local proxy cannot bypass. Use the
+> free `no-subscription` repo for package updates.
 
 ## Install
 
@@ -105,30 +111,61 @@ git clone https://github.com/TheMeinerLP/proxmox-license-proxy && cd proxmox-lic
 CGO_ENABLED=0 go build -ldflags "-s -w" -o proxmox-license-proxy .
 ```
 
-## Quickstart (server, Docker)
+## Set it up (who runs what, where)
+
+There are two roles. They can be **two machines** or the **same machine**.
+
+- **Proxy host** - runs the subscription server (`serve`). Answers the subscription check.
+- **Proxmox host** - the PVE/PBS/PMG you want to show "subscribed". It must trust the
+  proxy's certificate and resolve `shop.proxmox.com` to the proxy.
+
+### 1. Proxy host - run the server
 
 ```sh
-docker compose up -d --build
-# mint a lab key (interactive product picker, or pass --product pbs --level c --yes)
-docker compose exec proxy proxmox-license-proxy license generate --product pbs --yes
-docker compose exec proxy proxmox-license-proxy server pending
-docker compose exec proxy proxmox-license-proxy server approve <serverid>
+curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | sh
+sudoedit /etc/pmox/config.yaml          # optional; enable auto_approve here if you like
+sudo systemctl start proxmox-license-proxy
 ```
 
-## Quickstart (client, on the Proxmox host)
+It serves HTTPS on `:443` with a **persistent** self-signed cert (stable across
+restarts/upgrades) and advertises itself on the LAN via **mDNS**.
+
+### 2. Proxmox host - point it at the proxy
 
 ```sh
-# install the binary + trust cert + edit /etc/hosts, interactively
+# installs the binary, discovers the proxy via mDNS, trusts its cert, and points
+# shop.proxmox.com at it. Prints the cert fingerprint so you can verify it.
 proxmox-license-proxy client install
-# ... then on the host:
-proxmox-backup-manager subscription set pbsc-1ab1234567
-proxmox-backup-manager subscription update
 ```
 
-The server announces itself on the LAN via **mDNS**, so `client install` offers the
-discovered servers and lets you **pick which server IP** to use (no need to know the
-address up front). List them anytime with `client discover`; disable advertising
-with `serve --mdns=false`.
+Same machine as the proxy? Add **`--no-binary`** (the package already installed the
+binary - this avoids a /usr/local/bin copy shadowing it):
+
+```sh
+proxmox-license-proxy client install --no-binary
+```
+
+### 3. Generate a key and approve the host
+
+```sh
+# on the PROXY host: mint a lab key (interactive; or --product/--level/--sockets)
+proxmox-license-proxy subscription generate
+
+# then tell Proxmox to use it (PBS shown; PVE/PMG have their own command)
+proxmox-backup-manager subscription set pbsc-1ab1234567
+
+# first contact registers the host as PENDING; approve it on the PROXY host:
+proxmox-license-proxy server pending
+proxmox-license-proxy server approve <serverid>
+# ...or skip this by setting auto_approve in the config (see below).
+
+proxmox-backup-manager subscription update   # on the Proxmox host
+```
+
+`client install` offers the mDNS-discovered servers and lets you **pick which IP**
+(or `localhost` for a single host). List them anytime with `client discover`;
+disable advertising with `serve --mdns=false`. Docker users: `docker compose up -d`
+then run the `subscription`/`server` commands via `docker compose exec proxy ...`.
 
 ## Configuration
 
@@ -166,37 +203,37 @@ hosts (no NAT between them) for it to be meaningful.
 
 ## Commands
 
-`serve`, `status`, `license {add,generate,list,show,rm,set-due,export,import}`
+`serve`, `status`, `subscription {add,generate,list,show,rm,set-due,export,import}`
 - `server {list,pending,approve,reject,block,rm}`, `client {install,uninstall,discover}`
 - `cert {generate,install}`, `hosts {enable,disable,status}`
 - `config {init,show,path}`, `version`, `completion`
 
-`license generate` mints a **lab-only** key: it is format-valid (so the emulation
+`subscription generate` mints a **lab-only** key: it is format-valid (so the emulation
 works) but deliberately marked - the key carries a visible `1ab` ("lab") signature
 (e.g. `pbsc-1ab879865b`) and its product name is tagged
 `(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)`, which Proxmox shows in its
 subscription panel. The command prints a warning banner and requires confirmation.
 Run interactively it asks for the product and level (and, for **PVE**, the CPU
 socket count, since PVE keys encode `[1248]`); or pass `--product/--level/--sockets`
-for scripts, e.g. `license generate --product pve --level s --sockets 4 --yes`.
+for scripts, e.g. `subscription generate --product pve --level s --sockets 4 --yes`.
 
-**Every** license must carry the `1ab` signature - `license add` (and the REST
+**Every** subscription must carry the `1ab` signature - `subscription add` (and the REST
 API / `import`) reject any key without it. This guarantees the proxy can only
 ever manage clearly-marked lab keys, never something mistakable for a real
-subscription. The easiest path is `license generate`.
+subscription. The easiest path is `subscription generate`.
 
 `approve`/`reject`/`block` accept multiple server ids; `approve`/`reject` also
 take `--all` (all pending hosts) and `--note`. Read commands (`status`,
-`license list/show`, `server list/pending`) support `-o`/`--output table|json|yaml`.
+`subscription list/show`, `server list/pending`) support `-o`/`--output table|json|yaml`.
 
-Destructive commands (`license rm`, `server rm`, `hosts disable`) prompt for
+Destructive commands (`subscription rm`, `server rm`, `hosts disable`) prompt for
 confirmation; pass `-y`/`--yes` to skip it. The registry keeps a `.bak` of the
 previous state on every write.
 
 ## REST API
 
 `POST /modules/servers/licensing/verify.php`, `GET /ca.crt`, `GET /healthz` -
-`GET /readyz`, `GET /status`, `/api/licenses`, `/api/servers`
+`GET /readyz`, `GET /status`, `/api/subscriptions`, `/api/servers`
 
 ## Development
 

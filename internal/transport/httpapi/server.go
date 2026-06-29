@@ -122,12 +122,15 @@ func (s *Server) Handler() nethttp.Handler {
 	r.Get("/readyz", s.handleReady)
 	r.Get("/status", s.handleStatus)
 
-	// License management REST API.
-	r.Route("/api/licenses", func(r chi.Router) {
+	// Subscription management REST API. /api/subscriptions is the canonical path
+	// (Proxmox's own term); /api/licenses stays as a back-compat alias.
+	subscriptionRoutes := func(r chi.Router) {
 		r.Get("/", s.handleListLicenses)
 		r.Post("/", s.handleAddLicense)
 		r.Delete("/{key}", s.handleDeleteLicense)
-	})
+	}
+	r.Route("/api/subscriptions", subscriptionRoutes)
+	r.Route("/api/licenses", subscriptionRoutes)
 
 	// Host management REST API.
 	r.Route("/api/servers", func(r chi.Router) {

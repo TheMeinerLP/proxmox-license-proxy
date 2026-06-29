@@ -14,7 +14,7 @@ import (
 type statusReport struct {
 	Config       string `json:"config" yaml:"config"`
 	RegistryFile string `json:"registryFile" yaml:"registryFile"`
-	Licenses     int    `json:"licenses" yaml:"licenses"`
+	Licenses     int    `json:"subscriptions" yaml:"subscriptions"`
 	Hosts        int    `json:"hosts" yaml:"hosts"`
 	Pending      int    `json:"pending" yaml:"pending"`
 	Listen       string `json:"listen" yaml:"listen"`
@@ -55,7 +55,7 @@ var statusCmd = &cobra.Command{
 			tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
 			fmt.Fprintf(tw, "config\t%s\n", report.Config)
 			fmt.Fprintf(tw, "registry file\t%s\n", report.RegistryFile)
-			fmt.Fprintf(tw, "licenses\t%d\n", report.Licenses)
+			fmt.Fprintf(tw, "subscriptions\t%d\n", report.Licenses)
 			fmt.Fprintf(tw, "hosts\t%d (%d pending approval)\n", report.Hosts, report.Pending)
 			fmt.Fprintf(tw, "listen\t%s\n", report.Listen)
 			fmt.Fprintf(tw, "tls mode\t%s\n", report.TLSMode)

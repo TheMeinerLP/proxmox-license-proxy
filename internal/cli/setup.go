@@ -31,7 +31,7 @@ var setupServerCmd = &cobra.Command{
 				huh.NewInput().Title("Listen address").Value(&listen),
 				huh.NewSelect[string]().Title("TLS mode").
 					Options(huh.NewOptions("auto", "files", "http")...).Value(&tlsMode),
-				huh.NewInput().Title("Registry file (licenses + hosts)").Value(&registry),
+				huh.NewInput().Title("Registry file (subscriptions + hosts)").Value(&registry),
 				huh.NewSelect[string]().Title("Log level").
 					Options(huh.NewOptions("info", "debug", "warn", "error")...).Value(&logLevel),
 			),

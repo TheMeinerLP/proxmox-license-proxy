@@ -23,7 +23,7 @@ var rootCmd = &cobra.Command{
 	Use:   "proxmox-license-proxy",
 	Short: "Local Proxmox subscription manager and emulator for labs and homelabs",
 	Long: "proxmox-license-proxy emulates the Proxmox subscription endpoint and\n" +
-		"manages license keys. Intended for internal/private test environments only.",
+		"manages subscription keys. Intended for internal/private test environments only.",
 	SilenceUsage: true,
 	// Load configuration once, before any subcommand executes.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

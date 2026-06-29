@@ -45,7 +45,7 @@ var clientInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install/update the binary and prepare this host (cert, /etc/hosts, completion)",
 	Long: `Installs or updates this binary into a system path and prepares the Proxmox
-host to use the license proxy: trusts the server certificate, redirects
+host to use the subscription proxy: trusts the server certificate, redirects
 shop.proxmox.com via /etc/hosts and installs shell completion.
 
 Interactive by default (asks where the server is). Pass --yes for an
@@ -97,7 +97,7 @@ func (o *installChoices) ask() error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Install location").Value(&o.dest),
-			huh.NewInput().Title("License server URL (where the proxy runs)").
+			huh.NewInput().Title("Proxy server URL (where the proxy runs)").
 				Placeholder("https://10.0.0.5").Value(&o.serverURL),
 			huh.NewConfirm().Title("Trust the server's certificate?").Value(&o.trustCert),
 			huh.NewConfirm().Title("Redirect shop.proxmox.com via /etc/hosts?").Value(&o.editHosts),
@@ -114,7 +114,7 @@ func (o *installChoices) ask() error {
 // same machine), where same-host mDNS may not loop back. The choice fills in
 // serverURL and hostsIP; "Enter manually" leaves them empty for the form below.
 func (o *installChoices) discoverServer() error {
-	fmt.Println("searching the local network for license-proxy servers (mDNS)...")
+	fmt.Println("searching the local network for proxmox-license-proxy servers (mDNS)...")
 	servers, _ := discovery.Browse(context.Background(), 3*time.Second)
 
 	type choice struct{ url, ip string }
@@ -318,14 +318,14 @@ var clientDiscoverTimeout time.Duration
 
 var clientDiscoverCmd = &cobra.Command{
 	Use:   "discover",
-	Short: "Find license-proxy servers on the local network via mDNS",
+	Short: "Find proxmox-license-proxy servers on the local network via mDNS",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		servers, err := discovery.Browse(context.Background(), clientDiscoverTimeout)
 		if err != nil {
 			return err
 		}
 		if len(servers) == 0 {
-			fmt.Println("no license-proxy servers found on the local network")
+			fmt.Println("no proxmox-license-proxy servers found on the local network")
 			return nil
 		}
 		tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
@@ -446,7 +446,7 @@ func init() {
 
 	f := clientInstallCmd.Flags()
 	f.StringVar(&clientDest, "dest", "", "install path (default "+defaultInstallDest+")")
-	f.StringVar(&clientServerURL, "server", "", "license server URL, e.g. https://10.0.0.5")
+	f.StringVar(&clientServerURL, "server", "", "proxy server URL, e.g. https://10.0.0.5")
 	f.StringVar(&clientHostsIP, "ip", "", "proxy IP for /etc/hosts (default: host from --server)")
 	f.StringVar(&clientFrom, "from", "", "download the binary from this URL instead of installing the current one")
 	f.BoolVar(&clientNoCert, "no-cert", false, "skip trusting the server certificate")

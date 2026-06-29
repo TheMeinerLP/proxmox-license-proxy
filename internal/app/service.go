@@ -43,7 +43,7 @@ type AddLicenseInput struct {
 // so the CLI and the REST API behave identically.
 func (s *Service) AddLicense(in AddLicenseInput) (subscription.License, error) {
 	if in.Key == "" {
-		return subscription.License{}, fmt.Errorf("license key is required")
+		return subscription.License{}, fmt.Errorf("subscription key is required")
 	}
 	if !in.Force && !subscription.ValidKey(in.Key) {
 		return subscription.License{}, fmt.Errorf("key %q is not a valid Proxmox key (e.g. pbsc-1ab1234567); use --force to override", in.Key)
@@ -52,7 +52,7 @@ func (s *Service) AddLicense(in AddLicenseInput) (subscription.License, error) {
 	// could be mistaken for a real production subscription. Not bypassable.
 	if !subscription.IsLabKey(in.Key) {
 		return subscription.License{}, fmt.Errorf(
-			"key %q must be a lab key carrying the %q signature (e.g. pbsc-1ab1234567); generate one with `license generate`",
+			"key %q must be a lab key carrying the %q signature (e.g. pbsc-1ab1234567); generate one with `subscription generate`",
 			in.Key, subscription.LabSignature)
 	}
 

@@ -25,7 +25,7 @@ var (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Run the license server (emulates shop.proxmox.com)",
+	Short: "Run the subscription server (emulates shop.proxmox.com)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Command flags override the loaded config (empty = keep config value).
 		if serveListen != "" {
