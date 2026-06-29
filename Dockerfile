@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /out/proxmox-license-proxy .
 
 # --- runtime stage ---
-FROM alpine:3.20
+FROM alpine:3.24
 
 # ca-certificates for any outbound TLS, wget for the healthcheck.
 RUN apk add --no-cache ca-certificates wget \
