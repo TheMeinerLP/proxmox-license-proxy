@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.1.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.0.0...v1.1.0) (2026-06-29)
+
+
+### Features
+
+* **certs:** show CA SHA-256 fingerprint on trust bootstrap ([356c829](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/356c829ca5d2dd587237c215aee0c7aa01e7a93f))
+* **discovery:** offer localhost and .local host when picking a server ([654f88b](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/654f88b4187bbd2227e187593d3a6b843da3b78a))
+* **install:** add CLI-only mode (binary + completions, no service) ([57a5725](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/57a5725ff8e31c01418755bc5e89ea99d8b60baf))
+* **license:** interactive product and level picker for generate ([ca64f4a](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/ca64f4a8f978b7835d5faa51176db7cee7e7f75c))
+* **packaging:** ship shell completions in deb/rpm/apk and archives ([a4ce135](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/a4ce135edd714eabe1332b67afcca0f9758533d4))
+* **server:** auto-approve hosts from trusted networks via config ([a770293](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/a770293fda25ad9a3e756fb4e88cc7bcd8fb5dec))
+
+
+### Bug Fixes
+
+* **config:** default registry to /var/lib/pmox so CLI and service agree ([c23ddca](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/c23ddca99e6e69c830996cdee0d148fc0bcc1b69))
+* **packaging:** enable mDNS under hardening and share the registry dir ([2635d00](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/2635d00fa0cdf283b78dc96560db4766b461c026))
+* **registry:** pin registry files to 0660 for shared root/pmox access ([8b256e2](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/8b256e266ac220d629ca262754979aaa22eded9d))
+* **subscription:** match real Proxmox key format (PVE socket digit) ([ae468e5](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/ae468e5004cdb348b3d613c8b4dedd04fa6e4e1d))
+
+
+### Code Refactoring
+
+* **fileio:** route file reads through one cleaned helper, drop last gosec exclude ([6e5377c](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/6e5377c27f04196c2157f6f15bff0ffc29d05bb2))
+
+
+### Build System & Hardening
+
+* **lint:** drop blanket gosec excludes, justify findings inline ([7e6f0e7](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/7e6f0e7e563d751e26d5a4da76cfd2490219dc48))
+* **lint:** drop unused nolint on hosts atomicWrite ([128be13](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/128be1352015705e5bf6c9ba365409301d65bfe9))
+* **lint:** rely on filepath.Clean to satisfy gosec G304 ([c8449d6](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/c8449d6ecc1b15c7737f6fe4b26cf82d0dc0b9e1))
+
+
+### Documentation
+
+* document CLI-only install, completions, and lab-key examples ([2c59a11](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/2c59a111a7023426444e9afcdf1c90b694b352ca))
+
 ## 1.0.0 (2026-06-29)
 
 
