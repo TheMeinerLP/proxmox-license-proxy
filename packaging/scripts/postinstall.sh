@@ -12,28 +12,34 @@ fi
 if ! getent passwd pmox >/dev/null 2>&1; then
     if command -v useradd >/dev/null 2>&1; then
         useradd --system --gid pmox --no-create-home \
-            --home-dir /var/lib/pmox --shell /usr/sbin/nologin pmox
+            --home-dir /etc/pmox --shell /usr/sbin/nologin pmox
     elif command -v adduser >/dev/null 2>&1; then
-        adduser -S -D -H -h /var/lib/pmox -s /sbin/nologin -G pmox pmox # alpine
+        adduser -S -D -H -h /etc/pmox -s /sbin/nologin -G pmox pmox # alpine
     fi
 fi
 
-# 2) Ownership + permissions on data and config.
-#    /var/lib/pmox is a setgid, group-pmox directory so a root-run CLI and the
-#    pmox service can share the registry: new files inherit group pmox, and the
-#    app pins them to 0660 (group-writable). The recursive chown/chmod also heals
-#    a registry that an earlier root-run CLI left owned by root.
-mkdir -p /var/lib/pmox
-chown -R pmox:pmox /var/lib/pmox
-chmod 2770 /var/lib/pmox
-for f in registry.json registry.json.bak registry.json.lock; do
-    [ -e "/var/lib/pmox/$f" ] && chmod 0660 "/var/lib/pmox/$f"
-done
-chown root:pmox /etc/pmox /etc/pmox/config.yaml 2>/dev/null || true
-chmod 0750 /etc/pmox 2>/dev/null || true
-chmod 0640 /etc/pmox/config.yaml 2>/dev/null || true
+# 2) Migrate a registry from the old /var/lib/pmox location (pre-/etc/pmox
+#    layout) so an upgrade keeps existing hosts and the persisted auto cert.
+mkdir -p /etc/pmox
+if [ -f /var/lib/pmox/registry.json ] && [ ! -f /etc/pmox/registry.json ]; then
+    for f in registry.json registry.json.bak registry.json.lock tls-auto.crt tls-auto.key; do
+        [ -e "/var/lib/pmox/$f" ] && mv "/var/lib/pmox/$f" "/etc/pmox/$f" 2>/dev/null || true
+    done
+fi
 
-# 3) systemd: reload + enable, but DO NOT start on first install - the admin
+# 3) Ownership + permissions. /etc/pmox is a setgid, group-pmox directory so a
+#    root-run CLI and the pmox service can share the registry: new files inherit
+#    group pmox, and the app pins them to 0660 (group-writable). config.yaml
+#    stays root-owned but group-readable so the service can read it.
+chown root:pmox /etc/pmox
+chmod 2770 /etc/pmox
+chown root:pmox /etc/pmox/config.yaml 2>/dev/null || true
+chmod 0640 /etc/pmox/config.yaml 2>/dev/null || true
+for f in registry.json registry.json.bak registry.json.lock; do
+    [ -e "/etc/pmox/$f" ] && chown pmox:pmox "/etc/pmox/$f" && chmod 0660 "/etc/pmox/$f"
+done
+
+# 4) systemd: reload + enable, but DO NOT start on first install - the admin
 #    should review /etc/pmox/config.yaml (and the :443 / DNS implications) first.
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true

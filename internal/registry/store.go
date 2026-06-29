@@ -49,7 +49,7 @@ func (s *Store) Load() (subscription.Registry, error) {
 func (s *Store) mutate(fn func(*subscription.Registry) error) error {
 	if dir := filepath.Dir(s.path); dir != "" {
 		// 0750: the registry holds host/license state; no world access. The
-		// package ships /var/lib/pmox as a setgid group dir, which this preserves.
+		// package ships /etc/pmox as a setgid group dir, which this preserves.
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}

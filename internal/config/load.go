@@ -21,10 +21,10 @@ func Load(cfgFile string) (*Settings, string, error) {
 	// Defaults (lowest precedence) - the tool works without any config file.
 	v.SetDefault("listen", ":443")
 	v.SetDefault("log", "info")
-	// Match the packaged service's writable state dir, so the CLI and the
-	// service agree on the registry even when no config file is found (/etc is
-	// read-only for the unit; mutable state belongs under /var/lib).
-	v.SetDefault("registry_file", "/var/lib/pmox/registry.json")
+	// Keep config, registry and the auto cert together under /etc/pmox so the
+	// CLI and the service agree on one folder even when no config file is found.
+	// The packaged service makes /etc/pmox writable for this (ReadWritePaths).
+	v.SetDefault("registry_file", "/etc/pmox/registry.json")
 	v.SetDefault("tls.mode", "auto")
 	v.SetDefault("hosts.file", "/etc/hosts")
 	// Register the auto-approve keys so PMOX_AUTO_APPROVE_* env binding works

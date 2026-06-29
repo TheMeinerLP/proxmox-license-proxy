@@ -115,17 +115,12 @@ nfpms:
       - dst: /etc/pmox
         type: dir
         file_info:
-          mode: 0750
-          owner: root
-          group: pmox
-      - dst: /var/lib/pmox
-        type: dir
-        file_info:
           # setgid (2xxx) so files created here inherit group pmox, letting a
-          # root-run CLI and the pmox service share the registry. postinstall
-          # re-applies this in case the packager drops the special bit.
+          # root-run CLI and the pmox service share the registry (and the
+          # persisted auto cert). postinstall re-applies this in case the
+          # packager drops the special bit.
           mode: 02770
-          owner: pmox
+          owner: root
           group: pmox
     scripts:
       postinstall: packaging/scripts/postinstall.sh

@@ -5,9 +5,9 @@
 listen: ":443"
 log: "info" # debug | info | warn | error
 
-# The service user (pmox) writes the registry here; /var/lib/pmox is created
-# and owned by the package. Do not move this under /etc (read-only for the unit).
-registry_file: "/var/lib/pmox/registry.json"
+# Config, registry and the persisted auto cert all live under /etc/pmox, which
+# the package makes group-writable for the service user (pmox).
+registry_file: "/etc/pmox/registry.json"
 
 tls:
   mode: "auto" # auto (self-signed) | files | http

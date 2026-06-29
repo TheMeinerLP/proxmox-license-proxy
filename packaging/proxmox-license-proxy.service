@@ -42,15 +42,13 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 # Group-writable (0007) so a root-run CLI and the pmox service can share the
-# registry in /var/lib/pmox (a setgid, group-pmox directory); the app also pins
-# the registry files to 0660 explicitly.
+# registry in /etc/pmox (a setgid, group-pmox directory); the app also pins the
+# registry files to 0660 explicitly.
 UMask=0007
 
-# Writable state: the server persists registry.json (auto-registered hosts) here.
-StateDirectory=pmox
-StateDirectoryMode=2770
-ReadWritePaths=/var/lib/pmox
-ReadOnlyPaths=/etc/pmox
+# Writable state: config, the registry (auto-registered hosts) and the persisted
+# auto TLS cert all live under /etc/pmox, so the sandbox must allow writing there.
+ReadWritePaths=/etc/pmox
 
 [Install]
 WantedBy=multi-user.target

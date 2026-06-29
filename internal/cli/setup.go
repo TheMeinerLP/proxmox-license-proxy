@@ -41,7 +41,7 @@ func runServerWizard() (serverWizardChoices, error) {
 	c := serverWizardChoices{
 		listen:             ":443",
 		logLevel:           "info",
-		registry:           "/var/lib/pmox/registry.json",
+		registry:           "/etc/pmox/registry.json",
 		tlsMode:            "auto",
 		autoApprovePrivate: true,
 		hostsFile:          "/etc/hosts",
