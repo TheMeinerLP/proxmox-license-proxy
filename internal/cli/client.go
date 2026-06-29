@@ -281,7 +281,9 @@ func installShellCompletion(shell string) (string, error) {
 			return "", err
 		}
 	}
-	f, err := os.Create(path)
+	// filepath.Clean satisfies gosec G304; the path is a known completion
+	// location derived from the shell flag.
+	f, err := os.Create(filepath.Clean(path))
 	if err != nil {
 		return "", err
 	}

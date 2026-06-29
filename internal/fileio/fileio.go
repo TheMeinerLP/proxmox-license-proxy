@@ -14,6 +14,7 @@ import (
 // originate from trusted operator input (config file, CLI flag), not from a
 // remote/untrusted source; Clean strips any "../" noise before the read.
 func ReadFile(path string) ([]byte, error) {
-	//nolint:gosec // G304: path is trusted operator config/flag input, cleaned above
+	// filepath.Clean both strips any "../" noise and satisfies gosec G304, which
+	// recognises it as a path sanitiser - so no //nolint is needed here.
 	return os.ReadFile(filepath.Clean(path))
 }
