@@ -48,7 +48,7 @@ func (s *Service) AddLicense(in AddLicenseInput) (subscription.License, error) {
 	if !in.Force && !subscription.ValidKey(in.Key) {
 		return subscription.License{}, fmt.Errorf("key %q is not a valid Proxmox key (e.g. pbsc-1ab1234567); use --force to override", in.Key)
 	}
-	// Every license must be a lab key — this tool refuses to manage anything that
+	// Every license must be a lab key - this tool refuses to manage anything that
 	// could be mistaken for a real production subscription. Not bypassable.
 	if !subscription.IsLabKey(in.Key) {
 		return subscription.License{}, fmt.Errorf(

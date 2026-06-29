@@ -18,7 +18,7 @@ import (
 func Load(cfgFile string) (*Settings, string, error) {
 	v := viper.New()
 
-	// Defaults (lowest precedence) – the tool works without any config file.
+	// Defaults (lowest precedence) - the tool works without any config file.
 	v.SetDefault("listen", ":443")
 	v.SetDefault("log", "info")
 	v.SetDefault("registry_file", "/etc/pmox/registry.json")

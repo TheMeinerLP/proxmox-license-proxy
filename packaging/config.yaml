@@ -1,4 +1,4 @@
-# /etc/pmox/config.yaml — default config for the systemd service.
+# /etc/pmox/config.yaml - default config for the systemd service.
 # Preserved across package upgrades (marked config|noreplace).
 # Any value can be overridden with a PMOX_* environment variable.
 

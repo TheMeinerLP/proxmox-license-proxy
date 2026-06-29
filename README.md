@@ -7,10 +7,10 @@
 A single Go binary that emulates the Proxmox subscription endpoint for **labs and
 homelabs**, and doubles as the client tool to point a Proxmox host at it.
 
-> ⚠️ **For private / internal test environments only.** This tool does not contact
+> **For private / internal test environments only.** This tool does not contact
 > Proxmox' real servers and changes nothing on a host unless you explicitly run the
 > client steps there. Removing the subscription nag on a *production* host bypasses a
-> commercial license — production deployments need a real Proxmox subscription.
+> commercial license - production deployments need a real Proxmox subscription.
 
 ## How it works
 
@@ -40,7 +40,7 @@ Pin a version with `VERSION=0.2.0`, or review the script first:
 ---
 
 All artifacts are also attached to every [GitHub Release](https://github.com/TheMeinerLP/proxmox-license-proxy/releases/latest)
-(`linux`/`darwin`, `amd64`/`arm64`) for manual install — replace `<ver>` with the
+(`linux`/`darwin`, `amd64`/`arm64`) for manual install - replace `<ver>` with the
 release version.
 
 ### Debian / Ubuntu / Proxmox (`.deb`)
@@ -54,7 +54,7 @@ curl -fsSLO https://github.com/TheMeinerLP/proxmox-license-proxy/releases/latest
 sudo apt install ./proxmox-license-proxy_<ver>_linux_${ARCH}.deb
 ```
 
-The service is **enabled but not started** on install — review the config first,
+The service is **enabled but not started** on install - review the config first,
 then start it:
 
 ```sh
@@ -63,7 +63,7 @@ sudo systemctl start proxmox-license-proxy
 systemctl status proxmox-license-proxy
 ```
 
-### RHEL / Fedora (`.rpm`) · Alpine (`.apk`)
+### RHEL / Fedora (`.rpm`), Alpine (`.apk`)
 
 ```sh
 sudo dnf install ./proxmox-license-proxy_<ver>_linux_amd64.rpm
@@ -130,25 +130,25 @@ Config precedence: flags > `PMOX_*` env > config file > defaults.
 | `log` | `PMOX_LOG` | `info` |
 | `registry_file` | `PMOX_REGISTRY_FILE` | `/etc/pmox/registry.json` |
 | `tls.mode` | `PMOX_TLS_MODE` | `auto` (auto/files/http) |
-| `hosts.file` / `hosts.ip` | `PMOX_HOSTS_FILE` / `PMOX_HOSTS_IP` | `/etc/hosts` / — |
+| `hosts.file` / `hosts.ip` | `PMOX_HOSTS_FILE` / `PMOX_HOSTS_IP` | `/etc/hosts` / - |
 
 See [`config.example.yaml`](config.example.yaml), or scaffold one with
 `proxmox-license-proxy config init` (interactive setup: `setup server`).
 
 ## Commands
 
-`serve` · `status` · `license {add,generate,list,show,rm,set-due,export,import}`
-· `server {list,pending,approve,reject,block,rm}` · `client {install,uninstall,discover}`
-· `cert {generate,install}` · `hosts {enable,disable,status}`
-· `config {init,show,path}` · `version` · `completion`
+`serve`, `status`, `license {add,generate,list,show,rm,set-due,export,import}`
+- `server {list,pending,approve,reject,block,rm}`, `client {install,uninstall,discover}`
+- `cert {generate,install}`, `hosts {enable,disable,status}`
+- `config {init,show,path}`, `version`, `completion`
 
 `license generate` mints a **lab-only** key: it is format-valid (so the emulation
-works) but deliberately marked — the key carries a visible `1ab` ("lab") signature
+works) but deliberately marked - the key carries a visible `1ab` ("lab") signature
 (e.g. `pbsc-1ab879865b`) and its product name is tagged
-`(LAB · proxmox-license-proxy — NOT FOR PRODUCTION)`, which Proxmox shows in its
+`(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)`, which Proxmox shows in its
 subscription panel. The command prints a warning banner and requires confirmation.
 
-**Every** license must carry the `1ab` signature — `license add` (and the REST
+**Every** license must carry the `1ab` signature - `license add` (and the REST
 API / `import`) reject any key without it. This guarantees the proxy can only
 ever manage clearly-marked lab keys, never something mistakable for a real
 subscription. The easiest path is `license generate`.
@@ -163,12 +163,12 @@ previous state on every write.
 
 ## REST API
 
-`POST /modules/servers/licensing/verify.php` · `GET /ca.crt` · `GET /healthz` ·
-`GET /readyz` · `GET /status` · `/api/licenses` · `/api/servers`
+`POST /modules/servers/licensing/verify.php`, `GET /ca.crt`, `GET /healthz` -
+`GET /readyz`, `GET /status`, `/api/licenses`, `/api/servers`
 
 ## Development
 
-CI (GitHub Actions) is the source of truth — it runs tests (`-race`),
+CI (GitHub Actions) is the source of truth - it runs tests (`-race`),
 `golangci-lint` and a build on every push/PR. Locally:
 
 ```sh
@@ -186,7 +186,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Security & responsible use
 
-This is for home labs and internal test clusters — not a way to dodge paying for
+This is for home labs and internal test clusters - not a way to dodge paying for
 production. If you run Proxmox in production, buy a subscription. See
 [SECURITY.md](SECURITY.md) for the full policy and how to report vulnerabilities.
 

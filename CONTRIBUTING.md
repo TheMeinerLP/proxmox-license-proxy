@@ -21,15 +21,15 @@ CI (GitHub Actions) is the source of truth: every push and PR runs the tests
 - **[Conventional Commits](https://www.conventionalcommits.org)** are required
   (`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`,
   `chore:`, `revert:`). PRs are **squash-merged** and the **PR title** becomes the
-  commit — a CI check lints it. Release Please derives the next version and the
-  changelog from these (`feat` → minor, `fix` → patch; `!`/`BREAKING CHANGE` → major).
+  commit - a CI check lints it. Release Please derives the next version and the
+  changelog from these (`feat` -> minor, `fix` -> patch; `!`/`BREAKING CHANGE` -> major).
 - Add a test for new behaviour where it is reasonable (table-driven tests fit
   most of this codebase).
 
 ## Architecture (short)
 
 ```
-subscription   domain core (Proxmox protocol, key/status types) — no internal deps
+subscription   domain core (Proxmox protocol, key/status types) - no internal deps
 registry       JSON file persistence (flock + atomic writes)
 app            business logic shared by HTTP + CLI (verify decision, license defaults)
 transport/httpapi   the HTTP server (verify.php emulation, REST API, health probes)
@@ -38,11 +38,11 @@ config         wire Config -> validated domain Settings
 certs / hosts / client   client-side helpers (trust store, /etc/hosts, self-install)
 ```
 
-Keep it simple — this deliberately avoids hexagonal/DDD ceremony.
+Keep it simple - this deliberately avoids hexagonal/DDD ceremony.
 
 ## Releasing
 
-Releases are automated — **do not push tags by hand**:
+Releases are automated - **do not push tags by hand**:
 
 1. Merge Conventional-Commit PRs into `master`.
 2. Release Please opens/updates a release PR (`chore: release X.Y.Z`) with the
@@ -53,9 +53,9 @@ Releases are automated — **do not push tags by hand**:
 
 ### One-time maintainer setup
 
-- **Settings → Actions → General → Workflow permissions:** enable *"Allow GitHub
+- **Settings -> Actions -> General -> Workflow permissions:** enable *"Allow GitHub
   Actions to create and approve pull requests"*.
-- **Settings → General → Pull Requests:** enable *Allow squash merging* and set
+- **Settings -> General -> Pull Requests:** enable *Allow squash merging* and set
   the squash commit message to *"Pull request title"*.
 - *(Optional)* add a `RELEASE_PLEASE_TOKEN` secret (PAT or GitHub App token) so CI
   also runs on the release PR; without it the default `GITHUB_TOKEN` is used.

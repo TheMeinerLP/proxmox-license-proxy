@@ -1,11 +1,11 @@
 #!/bin/sh
-# proxmox-license-proxy installer — detects CPU arch + package format and
+# proxmox-license-proxy installer - detects CPU arch + package format and
 # installs the matching .deb / .rpm / .apk from the latest GitHub release.
 #
 #   curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/master/install.sh | sh
 #   VERSION=0.2.0 sh install.sh        # pin a specific version
 #
-# For private / internal lab use only — see the README warning.
+# For private / internal lab use only - see the README warning.
 set -eu
 
 REPO="TheMeinerLP/proxmox-license-proxy"

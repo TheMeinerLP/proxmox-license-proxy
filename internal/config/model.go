@@ -19,7 +19,7 @@ import (
 // conversion time, not somewhere deep in the code.
 
 // TLSMode is a real enum type rather than a free-form string. Invalid values
-// cannot exist in the domain model at all – the converter rejects them.
+// cannot exist in the domain model at all - the converter rejects them.
 type TLSMode string
 
 const (

@@ -38,7 +38,7 @@ func TestAddLicenseValidation(t *testing.T) {
 	if _, err := s.AddLicense(AddLicenseInput{Key: "bogus"}); err == nil {
 		t.Error("expected error for invalid key")
 	}
-	// Every license must carry the lab signature — even a non-lab Proxmox key is
+	// Every license must carry the lab signature - even a non-lab Proxmox key is
 	// rejected, and --force does not bypass it.
 	if _, err := s.AddLicense(AddLicenseInput{Key: "pbsc-1234567890"}); err == nil {
 		t.Error("a non-lab key must be rejected")

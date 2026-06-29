@@ -16,7 +16,7 @@ linters:
     gosec:
       excludes:
         - G401 # md5 is mandated by the Proxmox subscription protocol
-        - G501 # blocklisted import crypto/md5 — same reason
+        - G501 # blocklisted import crypto/md5 - same reason
         - G402 # InsecureSkipVerify in certs.Download is intentional (cert bootstrap)
         - G301 # 0755 dirs are intentional (config/data directories)
         - G306 # 0640/0644 files are intentional (group-readable config/registry)

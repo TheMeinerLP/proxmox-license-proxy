@@ -122,7 +122,7 @@ func (o *installChoices) discoverServer() error {
 		for _, ip := range s.IPs {
 			host := ip.String()
 			u := fmt.Sprintf("%s://%s", s.Scheme(), net.JoinHostPort(host, strconv.Itoa(s.Port)))
-			options = append(options, huh.NewOption(fmt.Sprintf("%s — %s", s.Instance, u), len(choices)))
+			options = append(options, huh.NewOption(fmt.Sprintf("%s - %s", s.Instance, u), len(choices)))
 			choices = append(choices, choice{url: u, ip: host})
 		}
 	}
@@ -130,7 +130,7 @@ func (o *installChoices) discoverServer() error {
 
 	sel := -1
 	if err := huh.NewSelect[int]().
-		Title("Discovered servers — pick which server IP to use").
+		Title("Discovered servers - pick which server IP to use").
 		Options(options...).
 		Value(&sel).
 		Run(); err != nil {

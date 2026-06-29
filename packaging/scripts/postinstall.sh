@@ -26,7 +26,7 @@ chown root:pmox /etc/pmox /etc/pmox/config.yaml 2>/dev/null || true
 chmod 0750 /etc/pmox 2>/dev/null || true
 chmod 0640 /etc/pmox/config.yaml 2>/dev/null || true
 
-# 3) systemd: reload + enable, but DO NOT start on first install — the admin
+# 3) systemd: reload + enable, but DO NOT start on first install - the admin
 #    should review /etc/pmox/config.yaml (and the :443 / DNS implications) first.
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true

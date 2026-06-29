@@ -29,12 +29,12 @@ var levelNames = map[byte]string{
 }
 
 // LabSignature is embedded at the start of every generated key's hex section so
-// a generated key is recognizable at a glance — "1ab" reads as "lab".
+// a generated key is recognizable at a glance - "1ab" reads as "lab".
 const LabSignature = "1ab"
 
 // LabMarker is appended to the product name of generated licenses so the origin
 // is visible wherever the subscription is shown (incl. the Proxmox UI).
-const LabMarker = "(LAB · proxmox-license-proxy — NOT FOR PRODUCTION)"
+const LabMarker = "(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)"
 
 var productCodes = map[string]bool{"pve": true, "pbs": true, "pmg": true}
 
