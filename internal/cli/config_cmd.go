@@ -39,6 +39,7 @@ auto_approve:
 
 var configInitOut string
 var configInitForce bool
+var configInitDefaults bool
 
 var configCmd = &cobra.Command{
 	Use:   "config",
@@ -47,13 +48,31 @@ var configCmd = &cobra.Command{
 
 var configInitCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Write a default config.yaml",
+	Short: "Create a config.yaml (guided wizard on a terminal, or --defaults)",
+	Long: "On a terminal this runs the guided server wizard (same as `setup server`),\n" +
+		"asking about TLS, the registry, auto-approval and more. Pass --defaults to\n" +
+		"skip the questions and write a commented scaffold instead.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stat(configInitOut); err == nil && !configInitForce {
 			return fmt.Errorf("%s already exists; use --force to overwrite", configInitOut)
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
+
+		// Guided by default on a terminal; --defaults forces the static scaffold.
+		if !configInitDefaults && interactiveTTY() {
+			choices, err := runServerWizard()
+			if err != nil {
+				return err
+			}
+			if err := applyServerWizard(choices).WriteConfigAs(configInitOut); err != nil {
+				return fmt.Errorf("write %s: %w", configInitOut, err)
+			}
+			fmt.Printf("\nwrote %s\n", configInitOut)
+			fmt.Printf("start the server with: proxmox-license-proxy serve --config %s\n", configInitOut)
+			return nil
+		}
+
 		if err := os.WriteFile(configInitOut, []byte(defaultConfigYAML), 0o600); err != nil {
 			return err
 		}
@@ -100,4 +119,5 @@ func init() {
 
 	configInitCmd.Flags().StringVar(&configInitOut, "out", "config.yaml", "output path")
 	configInitCmd.Flags().BoolVar(&configInitForce, "force", false, "overwrite existing file")
+	configInitCmd.Flags().BoolVar(&configInitDefaults, "defaults", false, "skip the wizard; write a commented default scaffold")
 }

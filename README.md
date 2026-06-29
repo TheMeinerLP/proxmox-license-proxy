@@ -180,8 +180,11 @@ Config precedence: flags > `PMOX_*` env > config file > defaults.
 | `hosts.file` / `hosts.ip` | `PMOX_HOSTS_FILE` / `PMOX_HOSTS_IP` | `/etc/hosts` / - |
 | `auto_approve.enabled` / `.private` / `.networks` | `PMOX_AUTO_APPROVE_ENABLED` | `false` / `false` / - |
 
-See [`config.example.yaml`](config.example.yaml), or scaffold one with
-`proxmox-license-proxy config init` (interactive setup: `setup server`).
+On a terminal, `proxmox-license-proxy config init` runs a **guided wizard** (TLS
+mode, registry path, auto-approval and more) and writes the config for you; it is
+the same wizard as `setup server`. Prefer a static, fully-commented scaffold to
+edit by hand? Use `config init --defaults` (or see
+[`config.example.yaml`](config.example.yaml)).
 
 ### Auto-approval
 
@@ -222,9 +225,21 @@ API / `import`) reject any key without it. This guarantees the proxy can only
 ever manage clearly-marked lab keys, never something mistakable for a real
 subscription. The easiest path is `subscription generate`.
 
-`approve`/`reject`/`block` accept multiple server ids; `approve`/`reject` also
-take `--all` (all pending hosts) and `--note`. Read commands (`status`,
-`subscription list/show`, `server list/pending`) support `-o`/`--output table|json|yaml`.
+**Guided by default.** Run a management command **without arguments on a terminal**
+and it walks you through it interactively instead of erroring - no need to copy
+ids or keys around:
+
+- `server approve` / `reject` / `block` - multi-select hosts from a list
+- `server rm` - pick the host to remove
+- `subscription show` / `rm` / `set-due` - pick the key (and, for `set-due`, type
+  the new date) from a prompt
+- `subscription add` - prompts for the key (tip: `subscription generate` mints one)
+- `config init` / `setup server` - a full wizard (TLS, registry, auto-approve, ...)
+
+The flags still work for scripts: `approve`/`reject`/`block` accept multiple
+server ids; `approve`/`reject` also take `--all` (all pending hosts) and `--note`.
+Read commands (`status`, `subscription list/show`, `server list/pending`) support
+`-o`/`--output table|json|yaml`.
 
 Destructive commands (`subscription rm`, `server rm`, `hosts disable`) prompt for
 confirmation; pass `-y`/`--yes` to skip it. The registry keeps a `.bak` of the

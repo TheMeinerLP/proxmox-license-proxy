@@ -61,6 +61,45 @@ func store() *registry.Store {
 	return registry.NewStore(settings.RegistryFile)
 }
 
+// selectLicenseKey interactively picks one registered subscription key for an
+// action (verb), labelling each with its product and status. Returns "" if there
+// is nothing to act on or the user picked nothing.
+func selectLicenseKey(verb string) (string, error) {
+	licenses, err := store().ListLicenses()
+	if err != nil {
+		return "", err
+	}
+	if len(licenses) == 0 {
+		fmt.Printf("no subscriptions to %s\n", verb)
+		return "", nil
+	}
+	opts := make([]huh.Option[string], len(licenses))
+	for i, l := range licenses {
+		label := l.Key
+		if l.ProductName != "" {
+			label += "  " + l.ProductName
+		}
+		label += fmt.Sprintf("  [%s]", l.Status)
+		opts[i] = huh.NewOption(label, l.Key)
+	}
+	var key string
+	err = huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
+		Title("Select a subscription to " + verb).Options(opts...).Value(&key))).Run()
+	return key, err
+}
+
+// resolveLicenseKeyArg returns the key argument, or opens an interactive picker
+// when none is given on a terminal, so admins rarely need to copy keys.
+func resolveLicenseKeyArg(args []string, verb string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	if interactiveTTY() {
+		return selectLicenseKey(verb)
+	}
+	return "", fmt.Errorf("no key given (pass a subscription key, or run on a terminal to pick interactively)")
+}
+
 var licenseCmd = &cobra.Command{
 	Use:     "subscription",
 	Aliases: []string{"license", "sub"},
@@ -68,12 +107,27 @@ var licenseCmd = &cobra.Command{
 }
 
 var licenseAddCmd = &cobra.Command{
-	Use:   "add <key>",
-	Short: "Add a subscription key",
-	Args:  cobra.ExactArgs(1),
+	Use:   "add [key]",
+	Short: "Add an existing lab subscription key (use `generate` to mint a new one)",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var key string
+		if len(args) == 1 {
+			key = args[0]
+		} else if interactiveTTY() {
+			fmt.Println("Tip: to mint a brand-new lab key instead, run `subscription generate`.")
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewInput().Title("Subscription key to add").
+					Placeholder("e.g. pbsc-1ab879865b").Value(&key),
+			)).Run(); err != nil {
+				return err
+			}
+		}
+		if key == "" {
+			return fmt.Errorf("no key given (pass a subscription key, run on a terminal to enter one, or use `subscription generate`)")
+		}
 		lic, err := app.New(store()).AddLicense(app.AddLicenseInput{
-			Key:         args[0],
+			Key:         key,
 			Product:     licenseAddProduct,
 			ProductName: licenseAddName,
 			StatusRaw:   licenseAddStatus,
@@ -228,16 +282,23 @@ var licenseListCmd = &cobra.Command{
 }
 
 var licenseShowCmd = &cobra.Command{
-	Use:   "show <key>",
+	Use:   "show [key]",
 	Short: "Show details of a subscription",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		lic, ok, err := store().GetLicense(args[0])
+		key, err := resolveLicenseKeyArg(args, "show")
+		if err != nil {
+			return err
+		}
+		if key == "" {
+			return nil
+		}
+		lic, ok, err := store().GetLicense(key)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("subscription %q not found", args[0])
+			return fmt.Errorf("subscription %q not found", key)
 		}
 		return render(lic, func() error {
 			fmt.Printf("key:        %s\n", lic.Key)
@@ -251,45 +312,71 @@ var licenseShowCmd = &cobra.Command{
 }
 
 var licenseRemoveCmd = &cobra.Command{
-	Use:     "rm <key>",
+	Use:     "rm [key]",
 	Aliases: []string{"remove", "delete"},
 	Short:   "Remove a subscription key",
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := confirm(cmd, licenseRemoveYes, fmt.Sprintf("Remove subscription %q?", args[0])); err != nil {
+		key, err := resolveLicenseKeyArg(args, "remove")
+		if err != nil {
 			return err
 		}
-		removed, err := store().RemoveLicense(args[0])
+		if key == "" {
+			return nil
+		}
+		if err := confirm(cmd, licenseRemoveYes, fmt.Sprintf("Remove subscription %q?", key)); err != nil {
+			return err
+		}
+		removed, err := store().RemoveLicense(key)
 		if err != nil {
 			return err
 		}
 		if !removed {
-			return fmt.Errorf("subscription %q not found", args[0])
+			return fmt.Errorf("subscription %q not found", key)
 		}
-		fmt.Printf("removed %s\n", args[0])
+		fmt.Printf("removed %s\n", key)
 		return nil
 	},
 }
 
 var licenseSetDueCmd = &cobra.Command{
-	Use:   "set-due <key>",
+	Use:   "set-due [key]",
 	Short: "Change the expiry date of a subscription",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if licenseSetDue == "" {
+		key, err := resolveLicenseKeyArg(args, "re-date")
+		if err != nil {
+			return err
+		}
+		if key == "" {
+			return nil
+		}
+		due := licenseSetDue
+		if due == "" && interactiveTTY() {
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewInput().Title("New expiry date (YYYY-MM-DD)").Value(&due).
+					Validate(func(s string) error {
+						_, perr := time.Parse("2006-01-02", s)
+						return perr
+					}),
+			)).Run(); err != nil {
+				return err
+			}
+		}
+		if due == "" {
 			return fmt.Errorf("--due is required (YYYY-MM-DD)")
 		}
-		if _, err := time.Parse("2006-01-02", licenseSetDue); err != nil {
+		if _, err := time.Parse("2006-01-02", due); err != nil {
 			return fmt.Errorf("--due must be YYYY-MM-DD: %w", err)
 		}
-		found, err := store().SetDue(args[0], licenseSetDue)
+		found, err := store().SetDue(key, due)
 		if err != nil {
 			return err
 		}
 		if !found {
-			return fmt.Errorf("subscription %q not found", args[0])
+			return fmt.Errorf("subscription %q not found", key)
 		}
-		fmt.Printf("updated %s due date to %s\n", args[0], licenseSetDue)
+		fmt.Printf("updated %s due date to %s\n", key, due)
 		return nil
 	},
 }
