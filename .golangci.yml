@@ -15,13 +15,29 @@ linters:
   settings:
     gosec:
       excludes:
+        - G401 # md5 is mandated by the Proxmox subscription protocol
+        - G501 # blocklisted import crypto/md5 — same reason
         - G402 # InsecureSkipVerify in certs.Download is intentional (cert bootstrap)
+        - G301 # 0755 dirs are intentional (config/data directories)
+        - G306 # 0640/0644 files are intentional (group-readable config/registry)
+        - G304 # file paths come from trusted config (hosts file, registry path)
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint # writes to stdout / tabwriter; the error is not actionable
+        - fmt.Fprintf
+        - fmt.Fprintln
   exclusions:
     rules:
       - path: _test\.go
         linters:
           - gosec
           - errcheck
+          - gocritic
+      # revive's exported/package-comment/unused-parameter rules are stylistic;
+      # keep the rest of revive but silence those.
+      - linters:
+          - revive
+        text: "(unused-parameter|package-comments|exported):"
 
 formatters:
   enable:
