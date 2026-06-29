@@ -31,6 +31,8 @@ func Load(cfgFile string) (*Settings, string, error) {
 	// (viper's AutomaticEnv only resolves nested keys it already knows).
 	v.SetDefault("auto_approve.enabled", false)
 	v.SetDefault("auto_approve.private", false)
+	// Same reason: register api.admin_token so PMOX_API_ADMIN_TOKEN binds.
+	v.SetDefault("api.admin_token", "")
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
