@@ -176,6 +176,9 @@ works) but deliberately marked - the key carries a visible `1ab` ("lab") signatu
 (e.g. `pbsc-1ab879865b`) and its product name is tagged
 `(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)`, which Proxmox shows in its
 subscription panel. The command prints a warning banner and requires confirmation.
+Run interactively it asks for the product and level (and, for **PVE**, the CPU
+socket count, since PVE keys encode `[1248]`); or pass `--product/--level/--sockets`
+for scripts, e.g. `license generate --product pve --level s --sockets 4 --yes`.
 
 **Every** license must carry the `1ab` signature - `license add` (and the REST
 API / `import`) reject any key without it. This guarantees the proxy can only

@@ -41,15 +41,20 @@ const LabMarker = "(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)"
 
 var productCodes = map[string]bool{"pve": true, "pbs": true, "pmg": true}
 
-// labSockets is the socket count baked into generated PVE keys. PVE is the only
-// product that encodes sockets in the key; lab keys are single-socket.
-const labSockets = "1"
+// defaultSockets is the PVE socket count used when none is given. PVE is the
+// only product that encodes sockets in the key; PVE is licensed per socket.
+const defaultSockets = "1"
+
+// ValidSockets are the socket counts a PVE key may encode ([1248] in the format).
+var ValidSockets = map[string]bool{"1": true, "2": true, "4": true, "8": true}
 
 // GenerateKey builds a valid but unmistakably lab-marked Proxmox key whose hex
-// section starts with the "1ab" signature, e.g. "pve1c-1ab3f9a2c1" (PVE, with
-// socket digit) or "pbsc-1ab3f9a2c1" (PBS/PMG). It is a real, format-valid key
-// the Proxmox API accepts, yet deliberately NOT a real subscription.
-func GenerateKey(product, level string) (string, error) {
+// section starts with the "1ab" signature, e.g. "pve2c-1ab3f9a2c1" (PVE, with a
+// 2-socket digit) or "pbsc-1ab3f9a2c1" (PBS/PMG, no socket digit). It is a real,
+// format-valid key the Proxmox API accepts, yet deliberately NOT a real
+// subscription. sockets is only used for PVE (1, 2, 4 or 8; default 1) and
+// ignored for PBS/PMG.
+func GenerateKey(product, level, sockets string) (string, error) {
 	if !productCodes[product] {
 		return "", fmt.Errorf("unknown product %q (want pve, pbs or pmg)", product)
 	}
@@ -64,10 +69,17 @@ func GenerateKey(product, level string) (string, error) {
 		return "", err
 	}
 	hexPart := LabSignature + hex.EncodeToString(buf)[:7] // 3 + 7 = 10 hex chars
+
 	prefix := product + level
 	if product == "pve" {
 		// PVE keys carry a socket-count digit between product and level.
-		prefix = product + labSockets + level
+		if sockets == "" {
+			sockets = defaultSockets
+		}
+		if !ValidSockets[sockets] {
+			return "", fmt.Errorf("unknown socket count %q for PVE (want 1, 2, 4 or 8)", sockets)
+		}
+		prefix = product + sockets + level
 	}
 	return fmt.Sprintf("%s-%s", prefix, hexPart), nil
 }

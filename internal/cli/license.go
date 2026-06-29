@@ -32,6 +32,7 @@ var (
 
 	licenseGenProduct string
 	licenseGenLevel   string
+	licenseGenSockets string
 	licenseGenYes     bool
 )
 
@@ -91,7 +92,7 @@ var licenseGenerateCmd = &cobra.Command{
 		"with the proxmox-license-proxy origin, so its lab status shows in the Proxmox UI.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprint(cmd.OutOrStdout(), labLicenseBanner)
-		product, level, err := resolveGenChoices(cmd)
+		product, level, sockets, err := resolveGenChoices(cmd)
 		if err != nil {
 			return err
 		}
@@ -99,7 +100,7 @@ var licenseGenerateCmd = &cobra.Command{
 			"I understand this key is LAB-ONLY and must never be used in production. Continue?"); err != nil {
 			return err
 		}
-		lic, err := app.New(store()).GenerateLicense(product, level, true)
+		lic, err := app.New(store()).GenerateLicense(product, level, sockets, true)
 		if err != nil {
 			return err
 		}
@@ -129,13 +130,17 @@ var (
 	}
 )
 
-// resolveGenChoices decides the product and level for `license generate`.
-// An explicit --product / --level flag always wins. Otherwise, on an interactive
-// terminal, the user picks both from a single form (same style as `setup`);
-// non-interactively it falls back to the documented defaults (pve / community)
-// so scripts keep working.
-func resolveGenChoices(cmd *cobra.Command) (product, level string, err error) {
-	product, level = licenseGenProduct, licenseGenLevel
+// genSockets are the PVE socket counts ([1248] in the key format), in menu order.
+var genSockets = []string{"1", "2", "4", "8"}
+
+// resolveGenChoices decides the product, level and (for PVE) socket count for
+// `license generate`. An explicit --product / --level / --sockets flag always
+// wins. Otherwise, on an interactive terminal, the user picks from a form (same
+// style as `setup`); the socket question only appears for PVE, since PVE is the
+// only product licensed per socket. Non-interactively it falls back to the
+// documented defaults (pve / community / 1 socket) so scripts keep working.
+func resolveGenChoices(cmd *cobra.Command) (product, level, sockets string, err error) {
+	product, level, sockets = licenseGenProduct, licenseGenLevel, licenseGenSockets
 	pickProduct := !cmd.Flags().Changed("product")
 	pickLevel := !cmd.Flags().Changed("level")
 
@@ -160,7 +165,7 @@ func resolveGenChoices(cmd *cobra.Command) (product, level string, err error) {
 				Title("Subscription level?").Options(opts...).Value(&level))
 		}
 		if err = huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
@@ -171,7 +176,27 @@ func resolveGenChoices(cmd *cobra.Command) (product, level string, err error) {
 	if level == "" {
 		level = genLevels[0].code
 	}
-	return product, level, nil
+
+	// Sockets only apply to PVE (it is licensed per CPU socket). Ask once the
+	// product is known to be PVE; other products ignore the value.
+	if product == "pve" {
+		if !cmd.Flags().Changed("sockets") && interactiveTTY() {
+			sockets = genSockets[0]
+			if err = huh.NewForm(huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("How many CPU sockets? (PVE is licensed per socket)").
+					Options(huh.NewOptions(genSockets...)...).Value(&sockets),
+			)).Run(); err != nil {
+				return "", "", "", err
+			}
+		}
+		if sockets == "" {
+			sockets = genSockets[0]
+		}
+	} else {
+		sockets = "" // not encoded in PBS/PMG keys
+	}
+	return product, level, sockets, nil
 }
 
 var licenseListCmd = &cobra.Command{
@@ -348,11 +373,14 @@ func init() {
 
 	licenseGenerateCmd.Flags().StringVar(&licenseGenProduct, "product", "", "product: pve | pbs | pmg (prompts when omitted on a terminal, else pve)")
 	licenseGenerateCmd.Flags().StringVar(&licenseGenLevel, "level", "", "level: c | b | s | p (prompts when omitted on a terminal, else c)")
+	licenseGenerateCmd.Flags().StringVar(&licenseGenSockets, "sockets", "", "PVE only: CPU sockets 1 | 2 | 4 | 8 (prompts when omitted on a terminal, else 1)")
 	licenseGenerateCmd.Flags().BoolVarP(&licenseGenYes, "yes", "y", false, "skip the lab-only confirmation")
 	_ = licenseGenerateCmd.RegisterFlagCompletionFunc("product",
 		cobra.FixedCompletions([]string{"pve", "pbs", "pmg"}, cobra.ShellCompDirectiveNoFileComp))
 	_ = licenseGenerateCmd.RegisterFlagCompletionFunc("level",
 		cobra.FixedCompletions([]string{"c", "b", "s", "p"}, cobra.ShellCompDirectiveNoFileComp))
+	_ = licenseGenerateCmd.RegisterFlagCompletionFunc("sockets",
+		cobra.FixedCompletions([]string{"1", "2", "4", "8"}, cobra.ShellCompDirectiveNoFileComp))
 
 	licenseExportCmd.Flags().StringVar(&licenseExportOut, "out", "", "output file (default: stdout)")
 	licenseImportCmd.Flags().StringVar(&licenseImportIn, "in", "", "input file")

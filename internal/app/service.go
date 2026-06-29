@@ -100,8 +100,8 @@ func (s *Service) AddLicense(in AddLicenseInput) (subscription.License, error) {
 // the key carries the visible "1ab" signature and the product name is tagged
 // with subscription.LabMarker, so its lab origin shows everywhere. When store is
 // true it is persisted with status APPROVED.
-func (s *Service) GenerateLicense(product, level string, store bool) (subscription.License, error) {
-	key, err := subscription.GenerateKey(product, level)
+func (s *Service) GenerateLicense(product, level, sockets string, store bool) (subscription.License, error) {
+	key, err := subscription.GenerateKey(product, level, sockets)
 	if err != nil {
 		return subscription.License{}, err
 	}

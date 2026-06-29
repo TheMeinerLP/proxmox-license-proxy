@@ -60,7 +60,7 @@ func TestAddLicenseValidation(t *testing.T) {
 
 func TestGenerateLicense(t *testing.T) {
 	s := newService(t)
-	lic, err := s.GenerateLicense("pbs", "c", true)
+	lic, err := s.GenerateLicense("pbs", "c", "", true)
 	if err != nil {
 		t.Fatalf("GenerateLicense: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestGenerateLicense(t *testing.T) {
 	}
 
 	// store=false must not persist.
-	lic2, err := s.GenerateLicense("pve", "c", false)
+	lic2, err := s.GenerateLicense("pve", "c", "1", false)
 	if err != nil {
 		t.Fatal(err)
 	}
