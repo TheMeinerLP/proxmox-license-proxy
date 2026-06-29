@@ -1,0 +1,14 @@
+[Unit]
+Description=Proxmox License Proxy - periodic enroll/renew
+Documentation=https://github.com/TheMeinerLP/proxmox-license-proxy
+
+[Timer]
+# Run daily, like certbot's renew timer. RandomizedDelaySize spreads many hosts
+# so they do not all hit the proxy at the same second.
+OnCalendar=daily
+RandomizedDelaySize=1h
+# Catch up after downtime (host was off when the timer was due).
+Persistent=true
+
+[Install]
+WantedBy=timers.target

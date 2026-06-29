@@ -44,6 +44,17 @@ var serveCmd = &cobra.Command{
 		}
 
 		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: settings.LogLevel}))
+
+		// One-time v1->v2 migration: pull a pre-2.0 registry (and auto cert) from
+		// /var/lib/pmox into the configured location if it has not moved yet. The
+		// packages do this in postinstall; this also covers manual/binary installs.
+		if migrated, err := registry.MigrateLegacy(registry.LegacyRegistryPath, settings.RegistryFile); err != nil {
+			log.Warn("legacy registry migration failed", "err", err)
+		} else if len(migrated) > 0 {
+			log.Info("migrated pre-2.0 registry to new location",
+				"from", registry.LegacyRegistryPath, "to", settings.RegistryFile, "files", migrated)
+		}
+
 		store := registry.NewStore(settings.RegistryFile)
 
 		srv, err := httpserver.New(settings, store, log)

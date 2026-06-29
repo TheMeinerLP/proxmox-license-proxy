@@ -13,6 +13,7 @@ import (
 	"proxmox-license-proxy/internal/config"
 	"proxmox-license-proxy/internal/fileio"
 	"proxmox-license-proxy/internal/hosts"
+	"proxmox-license-proxy/internal/registry"
 	"proxmox-license-proxy/internal/release"
 )
 
@@ -66,6 +67,9 @@ var doctorCmd = &cobra.Command{
 			checkTrustStore(),
 			checkReachability(),
 			checkLatestRelease(cmd.Context()),
+		}
+		if c, ok := checkLegacyRegistry(); ok {
+			checks = append(checks, c)
 		}
 
 		worst := levelOK
@@ -232,6 +236,26 @@ func checkReachability() check {
 	}
 	_ = conn.Close()
 	return check{level: levelOK, name: "local reachability", detail: "server is listening on " + addr}
+}
+
+// checkLegacyRegistry surfaces an un-migrated pre-2.0 registry. It returns
+// ok=false (and is omitted) unless there is genuinely something to migrate, to
+// keep the normal output quiet.
+func checkLegacyRegistry() (check, bool) {
+	if settings.RegistryFile == registry.LegacyRegistryPath {
+		return check{}, false
+	}
+	_, newErr := os.Stat(settings.RegistryFile)
+	_, oldErr := os.Stat(registry.LegacyRegistryPath)
+	if newErr == nil || oldErr != nil {
+		return check{}, false // already migrated, or no legacy data
+	}
+	return check{
+		level:  levelWarn,
+		name:   "registry migration",
+		detail: "a pre-2.0 registry exists at " + registry.LegacyRegistryPath + " but " + settings.RegistryFile + " is empty",
+		hint:   "`serve` migrates it automatically on next start, or copy it across by hand",
+	}, true
 }
 
 // checkLatestRelease compares the running build against the latest GitHub

@@ -48,6 +48,11 @@ auto_approve:
   private: true         # trust RFC1918 / ULA / loopback / link-local
   # networks:
   #   - "100.64.0.0/10"
+
+# Versioned REST API (/api/v1). ACME-style client endpoints are always on; set
+# admin_token to enable /api/v1/admin/* (host/account approval, revocation).
+api:
+  admin_token: ""
 `
 
 var configInitOut string

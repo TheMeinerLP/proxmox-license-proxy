@@ -172,6 +172,88 @@ func (s *Store) SetDue(key, due string) (bool, error) {
 	return found, err
 }
 
+// SetLicenseStatus changes a subscription's status (e.g. to REVOKED). The bool
+// reports whether the key existed.
+func (s *Store) SetLicenseStatus(key string, status subscription.Status) (bool, error) {
+	found := false
+	err := s.mutate(func(reg *subscription.Registry) error {
+		for i := range reg.Licenses {
+			if reg.Licenses[i].Key == key {
+				reg.Licenses[i].Status = status
+				found = true
+			}
+		}
+		return nil
+	})
+	return found, err
+}
+
+// GetLicenseFor returns the subscription assigned to a host for a product, if any.
+func (s *Store) GetLicenseFor(serverid, product string) (subscription.License, bool, error) {
+	reg, err := s.Load()
+	if err != nil {
+		return subscription.License{}, false, err
+	}
+	for _, l := range reg.Licenses {
+		if l.ServerID == serverid && l.Product == product {
+			return l, true, nil
+		}
+	}
+	return subscription.License{}, false, nil
+}
+
+// UpsertAccount inserts or updates an ACME account, keyed by its JWK thumbprint.
+func (s *Store) UpsertAccount(acc subscription.Account) error {
+	return s.mutate(func(reg *subscription.Registry) error {
+		for i := range reg.Accounts {
+			if reg.Accounts[i].Thumbprint == acc.Thumbprint {
+				reg.Accounts[i] = acc
+				return nil
+			}
+		}
+		reg.Accounts = append(reg.Accounts, acc)
+		return nil
+	})
+}
+
+// GetAccount looks up an account by its thumbprint (the JWS "kid").
+func (s *Store) GetAccount(thumbprint string) (subscription.Account, bool, error) {
+	reg, err := s.Load()
+	if err != nil {
+		return subscription.Account{}, false, err
+	}
+	for _, a := range reg.Accounts {
+		if a.Thumbprint == thumbprint {
+			return a, true, nil
+		}
+	}
+	return subscription.Account{}, false, nil
+}
+
+// ListAccounts returns all registered ACME accounts.
+func (s *Store) ListAccounts() ([]subscription.Account, error) {
+	reg, err := s.Load()
+	if err != nil {
+		return nil, err
+	}
+	return reg.Accounts, nil
+}
+
+// SetAccountStatus changes an account's status. The bool reports whether it existed.
+func (s *Store) SetAccountStatus(thumbprint string, status subscription.Status) (bool, error) {
+	found := false
+	err := s.mutate(func(reg *subscription.Registry) error {
+		for i := range reg.Accounts {
+			if reg.Accounts[i].Thumbprint == thumbprint {
+				reg.Accounts[i].Status = status
+				found = true
+			}
+		}
+		return nil
+	})
+	return found, err
+}
+
 // UpsertServer records a host contact: new hosts are created as PENDING, known
 // hosts get their LastSeen (and key/product) refreshed. It returns the current
 // entry so the caller can read the host's status.

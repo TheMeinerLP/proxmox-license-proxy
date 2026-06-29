@@ -49,7 +49,9 @@ on a single host)? Use CLI-only mode - it installs the binary to
 curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | PMOX_CLI_ONLY=1 sh
 ```
 
-Pin a version with `VERSION=0.2.0`, or review the script first:
+Pin a version with `PMOX_VERSION` (set it on the `sh`, not the `curl`, when
+piping):
+`curl -fsSL .../install.sh | PMOX_VERSION=2.0.0 sh`. Or review the script first:
 `curl -fsSL .../install.sh -o install.sh && less install.sh && sh install.sh`.
 
 ---
@@ -207,9 +209,9 @@ hosts (no NAT between them) for it to be meaningful.
 ## Commands
 
 `serve`, `status`, `doctor`, `subscription {add,generate,list,show,rm,set-due,export,import}`
-- `server {list,pending,approve,reject,block,rm}`, `client {install,uninstall,discover}`
-- `cert {generate,install}`, `hosts {enable,disable,status}`
-- `config {init,show,path}`, `version`, `completion`
+- `server {list,pending,approve,reject,block,rm}`, `account {list,approve,block}`
+- `client {install,enroll,uninstall,discover}`, `cert {generate,install}`
+- `hosts {enable,disable,status}`, `config {init,show,path}`, `version`, `completion`
 
 `serve` prints a startup summary (reachable URLs, TLS mode, CA fingerprint and
 next steps) before it starts logging. Stuck? `doctor` runs read-only checks - a
@@ -257,10 +259,86 @@ Destructive commands (`subscription rm`, `server rm`, `hosts disable`) prompt fo
 confirmation; pass `-y`/`--yes` to skip it. The registry keeps a `.bak` of the
 previous state on every write.
 
+## Automatic enrollment (ACME-style)
+
+Instead of minting a key by hand, a Proxmox host can enrol itself, like certbot
+for the subscription nag. `client enroll`:
+
+1. detects the installed products (PVE/PBS/PMG - a host may run several),
+2. trusts the proxy CA (pinned by fingerprint) and creates an **account key**,
+3. registers an ACME account and **orders a subscription per product**,
+4. installs each issued key with the product's own `… subscription set` tool.
+
+```sh
+# on the Proxmox host
+proxmox-license-proxy client enroll --server https://192.168.68.100
+```
+
+Issuance is gated on the **account**, not a guessed host id. A new account is
+`PENDING` until an admin approves it (or it registered from an `auto_approve`
+network); `enroll` prints the account id and exits, and you re-run it after:
+
+```sh
+# on the PROXY host
+proxmox-license-proxy account list
+proxmox-license-proxy account approve <thumbprint>
+```
+
+The server can **invalidate** a subscription at any time (`server`/admin API or
+the account itself); the host drops to unsubscribed on its next check.
+
+### Automatic renew (systemd timer)
+
+The packages ship a certbot-style renew timer (disabled by default, since the
+same package runs on the proxy host too). On a Proxmox host, point it at the
+proxy and enable it:
+
+```sh
+# on the Proxmox host
+sudo cp /etc/pmox/enroll.env.example /etc/pmox/enroll.env
+sudo $EDITOR /etc/pmox/enroll.env          # set PMOX_ENROLL_SERVER=https://<proxy>
+sudo systemctl enable --now proxmox-license-proxy-enroll.timer
+```
+
+The timer runs `client enroll` daily. Because enroll is idempotent (the server
+de-duplicates by account+product and re-setting an unchanged key is a no-op), a
+run safely **picks up a just-approved account**, re-applies a re-issued key or
+heals a cleared one — without touching anything when all is current. Every
+`client enroll` flag has a `PMOX_ENROLL_*` env equivalent for `enroll.env`; the
+unit stays inert until `/etc/pmox/enroll.env` exists (`ConditionPathExists`).
+
+Note the ACME-issued subscriptions do **not** hard-expire: Proxmox re-checks
+against the proxy on its own schedule and the proxy keeps answering `active`
+until you revoke. The renew timer is about approval pickup and self-healing, not
+a looming expiry.
+
 ## REST API
 
-`POST /modules/servers/licensing/verify.php`, `GET /ca.crt`, `GET /healthz` -
-`GET /readyz`, `GET /status`, `/api/subscriptions`, `/api/servers`
+Legacy (unversioned): `POST /modules/servers/licensing/verify.php`, `GET /ca.crt`,
+`GET /healthz`, `GET /readyz`, `GET /status`, `/api/subscriptions`, `/api/servers`.
+
+Versioned, ACME-style **`/api/v1`** (account keys + JWS, RFC 8555-inspired):
+`GET /directory`, `GET /new-nonce`, `POST /new-account`, `POST /new-order`
+(issues keys), `POST /subscriptions`, `POST /revoke`; plus a bearer-token
+`/api/v1/admin/*` for account/host approval and subscription revocation. See
+[`docs/api-v1.md`](docs/api-v1.md). The product is at **v2.0.0**; the API is at
+its first version (`v1`) - the two version numbers are independent.
+
+## Upgrading from v1 to v2
+
+v2 consolidates config, the registry and the auto cert under **`/etc/pmox`** (the
+registry was `/var/lib/pmox/registry.json`). Migration is automatic:
+
+- **Packages** (`.deb`/`.rpm`/`.apk`): the postinstall moves the old registry,
+  backup and persisted cert across on upgrade.
+- **Binary / manual installs**: on its next start, `serve` copies a pre-2.0
+  registry from `/var/lib/pmox` to the configured location (it never overwrites
+  existing data). `doctor` warns if an un-migrated registry is found.
+- **Docker**: unaffected - the image pins `PMOX_REGISTRY_FILE=/data/registry.json`.
+
+The registry format is backward-compatible (the new fields are additive), so
+existing subscriptions and approved hosts keep working. To migrate by hand:
+`mv /var/lib/pmox/registry.json* /etc/pmox/`.
 
 ## Development
 

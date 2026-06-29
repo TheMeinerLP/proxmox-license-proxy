@@ -13,14 +13,21 @@
 #   curl -fsSL .../install.sh | PMOX_CLI_ONLY=1 sh
 #   curl -fsSL .../install.sh | sh -s -- --cli-only
 #
-# Pin a version with VERSION=x.y.z. Override the CLI-only binary dir with BINDIR.
-# For private / internal lab use only - see the README warning.
+# Pin a version with PMOX_VERSION (set it on the `sh`, not the `curl`, when
+# piping):
+#
+#   curl -fsSL .../install.sh | PMOX_VERSION=2.0.0 sh
+#
+# Override the CLI-only binary dir with PMOX_BINDIR. PMOX_VERSION/PMOX_BINDIR
+# also accept the legacy bare VERSION/BINDIR names. Private / lab use only.
 set -eu
 
 REPO="TheMeinerLP/proxmox-license-proxy"
 BIN="proxmox-license-proxy"
 CLI_ONLY="${PMOX_CLI_ONLY:-0}"
-BINDIR="${BINDIR:-/usr/local/bin}"
+# Honour the PMOX_* convention; keep the bare names as a back-compat fallback.
+BINDIR="${PMOX_BINDIR:-${BINDIR:-/usr/local/bin}}"
+PIN_VERSION="${PMOX_VERSION:-${VERSION:-}}"
 
 for arg in "$@"; do
 	case "$arg" in
@@ -80,9 +87,8 @@ if [ "$CLI_ONLY" -ne 1 ]; then
 	fi
 fi
 
-# --- resolve version (latest unless VERSION is set) -----------------------
-VERSION="${VERSION:-}"
-if [ -z "$VERSION" ]; then
+# --- resolve version (latest unless PMOX_VERSION / VERSION is set) ---------
+if [ -z "$PIN_VERSION" ]; then
 	info "resolving latest release..."
 	if [ "$HAVE_CURL" -eq 1 ]; then
 		TAG=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
@@ -91,11 +97,12 @@ if [ -z "$VERSION" ]; then
 		TAG=$(wget -q -S -O /dev/null "https://github.com/$REPO/releases/latest" 2>&1 |
 			sed -n 's#.*[Ll]ocation:.*tag/\(.*\)#\1#p' | tr -d '\r' | tail -1)
 	fi
-	[ -n "$TAG" ] || err "could not determine latest version; set VERSION=x.y.z"
+	[ -n "$TAG" ] || err "could not determine latest version; set PMOX_VERSION=x.y.z"
 	VERSION="${TAG#v}"
 else
-	VERSION="${VERSION#v}"
+	VERSION="${PIN_VERSION#v}"
 	TAG="v${VERSION}"
+	info "pinned to ${TAG}"
 fi
 
 TMP=$(mktemp -d)
@@ -127,9 +134,10 @@ if [ "$CLI_ONLY" -eq 1 ]; then
 	info "installed: $("$BINDIR/$BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
 	echo
 	info "next steps (no service installed):"
-	echo "   1. generate a lab key:  ${BIN} license generate"
-	echo "   2. run the server:      ${BIN} serve --config your-config.yaml"
-	echo "      (scaffold one with:  ${BIN} setup server)"
+	echo "   1. run the server:      ${BIN} serve   (scaffold a config: ${BIN} config init)"
+	echo "   2. on each Proxmox host: ${BIN} client enroll --server https://<this-host>"
+	echo "      approve it here:      ${BIN} account approve <thumbprint>"
+	echo "      (or mint a key by hand: ${BIN} subscription generate)"
 	exit 0
 fi
 
@@ -180,6 +188,10 @@ fi
 
 echo
 info "next steps:"
-echo "   1. review the config:   ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
-echo "   2. start the service:   ${SUDO:+$SUDO }systemctl start ${BIN}"
-echo "   3. generate a lab key:  ${PKG_BIN} license generate"
+echo "   1. review the config:    ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
+echo "   2. start the service:    ${SUDO:+$SUDO }systemctl start ${BIN}"
+echo "   3. on each Proxmox host: ${BIN} client enroll --server https://<this-host>"
+echo "      approve it here:      ${PKG_BIN} account approve <thumbprint>"
+echo "      auto-renew on the host: cp /etc/pmox/enroll.env.example /etc/pmox/enroll.env,"
+echo "        set PMOX_ENROLL_SERVER, then: systemctl enable --now ${BIN}-enroll.timer"
+echo "      (or mint a key by hand: ${PKG_BIN} subscription generate)"

@@ -39,6 +39,12 @@ type Settings struct {
 	Hosts       HostsSettings
 	Offline     OfflineSettings
 	AutoApprove AutoApproveSettings
+	API         APISettings
+}
+
+// APISettings holds the validated REST API configuration.
+type APISettings struct {
+	AdminToken string
 }
 
 // AutoCertPaths returns where the `auto` TLS mode persists its self-signed

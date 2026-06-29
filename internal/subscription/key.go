@@ -41,6 +41,9 @@ const LabMarker = "(LAB, proxmox-license-proxy - NOT FOR PRODUCTION)"
 
 var productCodes = map[string]bool{"pve": true, "pbs": true, "pmg": true}
 
+// ProductCode reports whether p is a known Proxmox product code (pve/pbs/pmg).
+func ProductCode(p string) bool { return productCodes[p] }
+
 // defaultSockets is the PVE socket count used when none is given. PVE is the
 // only product that encodes sockets in the key; PVE is licensed per socket.
 const defaultSockets = "1"
