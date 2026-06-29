@@ -167,8 +167,17 @@ func (s *Store) SetDue(key, due string) (bool, error) {
 // UpsertServer records a host contact: new hosts are created as PENDING, known
 // hosts get their LastSeen (and key/product) refreshed. It returns the current
 // entry so the caller can read the host's status.
-func (s *Store) UpsertServer(serverid, key, product string) (subscription.Server, error) {
+//
+// When autoApprove is set (the host contacted from a trusted network), a new
+// host starts APPROVED and a host still PENDING is upgraded to APPROVED. An
+// explicit BLOCKED/REJECTED/APPROVED status is never changed - an operator's
+// decision always wins over auto-approval.
+func (s *Store) UpsertServer(serverid, key, product string, autoApprove bool) (subscription.Server, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
+	initial := subscription.Pending
+	if autoApprove {
+		initial = subscription.Approved
+	}
 	var current subscription.Server
 	err := s.mutate(func(reg *subscription.Registry) error {
 		for i := range reg.Servers {
@@ -180,6 +189,9 @@ func (s *Store) UpsertServer(serverid, key, product string) (subscription.Server
 				if product != "" {
 					reg.Servers[i].Product = product
 				}
+				if autoApprove && reg.Servers[i].Status == subscription.Pending {
+					reg.Servers[i].Status = subscription.Approved
+				}
 				current = reg.Servers[i]
 				return nil
 			}
@@ -188,7 +200,7 @@ func (s *Store) UpsertServer(serverid, key, product string) (subscription.Server
 			ServerID:  serverid,
 			Key:       key,
 			Product:   product,
-			Status:    subscription.Pending,
+			Status:    initial,
 			FirstSeen: now,
 			LastSeen:  now,
 		}

@@ -5,9 +5,18 @@ type Config struct {
 	LogLevel     string `mapstructure:"log"`
 	RegistryFile string `mapstructure:"registry_file"`
 
-	TLS     TLS     `mapstructure:"tls"`
-	Hosts   Hosts   `mapstructure:"hosts"`
-	Offline Offline `mapstructure:"offline"`
+	TLS         TLS         `mapstructure:"tls"`
+	Hosts       Hosts       `mapstructure:"hosts"`
+	Offline     Offline     `mapstructure:"offline"`
+	AutoApprove AutoApprove `mapstructure:"auto_approve"`
+}
+
+// AutoApprove configures automatic approval of hosts that first contact the
+// server from a trusted source address, instead of leaving them PENDING.
+type AutoApprove struct {
+	Enabled  bool     `mapstructure:"enabled"`
+	Private  bool     `mapstructure:"private"`  // shorthand: trust RFC1918 / ULA / loopback / link-local
+	Networks []string `mapstructure:"networks"` // extra trusted CIDRs, e.g. 10.0.0.0/8
 }
 
 type TLS struct {

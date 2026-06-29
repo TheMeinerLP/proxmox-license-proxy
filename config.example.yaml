@@ -19,3 +19,12 @@ hosts:
   # ip: "127.0.0.1"   # proxy IP the names are pointed at
   names:
     - "shop.proxmox.com"
+
+# Auto-approve hosts that first contact the server from a trusted source IP,
+# instead of leaving them PENDING for a manual `server approve`. An operator's
+# BLOCKED/REJECTED decision is never overridden. Works for all products.
+auto_approve:
+  enabled: false
+  private: true # trust RFC1918 / ULA / loopback / link-local (homelab default)
+  # networks:    # extra trusted CIDRs on top of (or instead of) `private`
+  #   - "100.64.0.0/10"   # e.g. a Tailscale/CGNAT range

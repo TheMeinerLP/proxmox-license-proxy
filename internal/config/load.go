@@ -27,6 +27,10 @@ func Load(cfgFile string) (*Settings, string, error) {
 	v.SetDefault("registry_file", "/var/lib/pmox/registry.json")
 	v.SetDefault("tls.mode", "auto")
 	v.SetDefault("hosts.file", "/etc/hosts")
+	// Register the auto-approve keys so PMOX_AUTO_APPROVE_* env binding works
+	// (viper's AutomaticEnv only resolves nested keys it already knows).
+	v.SetDefault("auto_approve.enabled", false)
+	v.SetDefault("auto_approve.private", false)
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)

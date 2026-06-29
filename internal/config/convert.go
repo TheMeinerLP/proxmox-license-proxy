@@ -35,6 +35,11 @@ func (c *Config) ToSettings() (*Settings, error) {
 		return nil, err
 	}
 
+	autoApprove, err := c.AutoApprove.toDomain()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Settings{
 		Listen:       c.Listen,
 		LogLevel:     level,
@@ -45,7 +50,42 @@ func (c *Config) ToSettings() (*Settings, error) {
 			PrivateKey: c.Offline.PrivateKey,
 			PublicKey:  c.Offline.PublicKey,
 		},
+		AutoApprove: autoApprove,
 	}, nil
+}
+
+// privateNetworks are the ranges the `auto_approve.private` shorthand trusts:
+// RFC1918, IPv6 ULA, loopback and link-local. A homelab host almost always
+// reaches the proxy from one of these.
+var privateNetworks = []string{
+	"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+	"127.0.0.0/8", "::1/128", "fc00::/7", "fe80::/10",
+}
+
+func (a AutoApprove) toDomain() (AutoApproveSettings, error) {
+	if !a.Enabled {
+		return AutoApproveSettings{}, nil
+	}
+
+	var cidrs []string
+	if a.Private {
+		cidrs = append(cidrs, privateNetworks...)
+	}
+	cidrs = append(cidrs, a.Networks...)
+	if len(cidrs) == 0 {
+		return AutoApproveSettings{}, fmt.Errorf(
+			"config: auto_approve.enabled needs auto_approve.private: true or at least one auto_approve.networks entry")
+	}
+
+	nets := make([]netip.Prefix, 0, len(cidrs))
+	for _, c := range cidrs {
+		p, err := netip.ParsePrefix(strings.TrimSpace(c))
+		if err != nil {
+			return AutoApproveSettings{}, fmt.Errorf("config: auto_approve.networks %q is not a valid CIDR: %w", c, err)
+		}
+		nets = append(nets, p.Masked())
+	}
+	return AutoApproveSettings{Enabled: true, Networks: nets}, nil
 }
 
 func (t TLS) toDomain() (TLSSettings, error) {

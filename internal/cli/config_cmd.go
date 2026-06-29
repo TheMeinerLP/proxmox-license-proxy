@@ -27,6 +27,14 @@ hosts:
   # ip: "127.0.0.1"
   names:
     - "shop.proxmox.com"
+
+# Auto-approve hosts contacting from a trusted source IP (else they stay PENDING
+# until 'server approve'). An operator's BLOCKED/REJECTED decision always wins.
+auto_approve:
+  enabled: false
+  private: true         # trust RFC1918 / ULA / loopback / link-local
+  # networks:
+  #   - "100.64.0.0/10"
 `
 
 var configInitOut string

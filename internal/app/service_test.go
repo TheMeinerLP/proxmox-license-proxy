@@ -93,7 +93,7 @@ func TestVerifyPendingThenApproved(t *testing.T) {
 	s := newService(t)
 
 	// First contact: host is auto-registered as pending -> not active.
-	res := s.Verify("HW-1", "pbsc-1234567890", "tok")
+	res := s.Verify("HW-1", "pbsc-1234567890", "tok", false)
 	if res.Active || res.Response.Status != "invalid" {
 		t.Fatalf("first contact should be invalid: %+v", res)
 	}
@@ -105,7 +105,7 @@ func TestVerifyPendingThenApproved(t *testing.T) {
 	if _, err := s.Store().SetServerStatus("HW-1", subscription.Approved); err != nil {
 		t.Fatal(err)
 	}
-	res = s.Verify("HW-1", "pbsc-1234567890", "tok")
+	res = s.Verify("HW-1", "pbsc-1234567890", "tok", false)
 	if !res.Active || res.Response.Status != "active" {
 		t.Fatalf("approved host should be active: %+v", res)
 	}
@@ -115,8 +115,22 @@ func TestVerifyPendingThenApproved(t *testing.T) {
 }
 
 func TestVerifyNoServerID(t *testing.T) {
-	res := newService(t).Verify("", "pbsc-1234567890", "tok")
+	res := newService(t).Verify("", "pbsc-1234567890", "tok", false)
 	if res.Active {
 		t.Error("a request without serverid must never be active")
+	}
+}
+
+func TestVerifyAutoApprove(t *testing.T) {
+	s := newService(t)
+	// A trusted host is approved and active on first contact, for any product.
+	for _, key := range []string{"pve2c-1234567890", "pbsc-1234567890", "pmgs-1234567890"} {
+		res := s.Verify("HW-"+key, key, "tok", true)
+		if !res.Active || res.Response.Status != "active" {
+			t.Errorf("auto-approved first contact should be active for %q: %+v", key, res)
+		}
+		if res.HostStatus != subscription.Approved {
+			t.Errorf("host %q should be approved, got %q", key, res.HostStatus)
+		}
 	}
 }

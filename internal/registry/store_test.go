@@ -60,7 +60,7 @@ func TestStoreLicenseCRUD(t *testing.T) {
 func TestStoreUpsertServer(t *testing.T) {
 	s := newStore(t)
 	// first contact -> PENDING, timestamps set
-	srv, err := s.UpsertServer("HW-1", "pbsc-1111111111", "pbs")
+	srv, err := s.UpsertServer("HW-1", "pbsc-1111111111", "pbs", false)
 	if err != nil {
 		t.Fatalf("UpsertServer: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestStoreUpsertServer(t *testing.T) {
 	if found, _ := s.SetServerStatus("HW-1", subscription.Approved); !found {
 		t.Fatal("SetServerStatus not found")
 	}
-	again, _ := s.UpsertServer("HW-1", "pbsc-1111111111", "pbs")
+	again, _ := s.UpsertServer("HW-1", "pbsc-1111111111", "pbs", false)
 	if again.Status != subscription.Approved {
 		t.Errorf("status not preserved on re-contact: %s", again.Status)
 	}
@@ -88,6 +88,39 @@ func TestStoreUpsertServer(t *testing.T) {
 	removed, _ := s.RemoveServer("HW-1")
 	if !removed {
 		t.Error("RemoveServer reported not found")
+	}
+}
+
+func TestStoreUpsertServerAutoApprove(t *testing.T) {
+	s := newStore(t)
+	// New host from a trusted network -> APPROVED immediately.
+	srv, err := s.UpsertServer("AUTO-1", "pbsc-1111111111", "pbs", true)
+	if err != nil {
+		t.Fatalf("UpsertServer: %v", err)
+	}
+	if srv.Status != subscription.Approved {
+		t.Errorf("auto-approve: new host = %s, want APPROVED", srv.Status)
+	}
+
+	// A still-pending host gets upgraded on a trusted re-contact.
+	if _, err := s.UpsertServer("AUTO-2", "pbsc-2222222222", "pbs", false); err != nil {
+		t.Fatal(err)
+	}
+	up, _ := s.UpsertServer("AUTO-2", "pbsc-2222222222", "pbs", true)
+	if up.Status != subscription.Approved {
+		t.Errorf("auto-approve: pending host = %s, want APPROVED", up.Status)
+	}
+
+	// An operator's BLOCKED decision is never overridden by auto-approval.
+	if _, err := s.UpsertServer("AUTO-3", "pbsc-3333333333", "pbs", false); err != nil {
+		t.Fatal(err)
+	}
+	if found, _ := s.SetServerStatus("AUTO-3", subscription.Blocked); !found {
+		t.Fatal("SetServerStatus not found")
+	}
+	blocked, _ := s.UpsertServer("AUTO-3", "pbsc-3333333333", "pbs", true)
+	if blocked.Status != subscription.Blocked {
+		t.Errorf("auto-approve must not override BLOCKED, got %s", blocked.Status)
 	}
 }
 

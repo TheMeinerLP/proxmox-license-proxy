@@ -148,12 +148,16 @@ type VerifyResult struct {
 // then refines the product name and dates. A registration failure degrades to
 // an "invalid" response (reported via RegisterErr) rather than an error, so the
 // Proxmox client always receives well-formed XML.
-func (s *Service) Verify(serverid, key, token string) VerifyResult {
+//
+// autoApprove (set by the transport when the host contacted from a trusted
+// network) approves a new or still-pending host on the spot. The product is
+// derived from the key, so auto-registration is correct for PVE, PBS and PMG.
+func (s *Service) Verify(serverid, key, token string, autoApprove bool) VerifyResult {
 	var hostStatus subscription.Status
 	var regErr error
 	if serverid != "" {
 		product, _, _ := subscription.Describe(key)
-		srv, err := s.store.UpsertServer(serverid, key, product)
+		srv, err := s.store.UpsertServer(serverid, key, product, autoApprove)
 		if err != nil {
 			regErr = err
 		} else {

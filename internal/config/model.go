@@ -34,9 +34,33 @@ type Settings struct {
 	LogLevel     slog.Level
 	RegistryFile string
 
-	TLS     TLSSettings
-	Hosts   HostsSettings
-	Offline OfflineSettings
+	TLS         TLSSettings
+	Hosts       HostsSettings
+	Offline     OfflineSettings
+	AutoApprove AutoApproveSettings
+}
+
+// AutoApproveSettings decides whether a host contacting from a given address is
+// auto-approved on first contact. Networks holds the trusted CIDRs (already
+// expanded from the `private` shorthand) as masked prefixes.
+type AutoApproveSettings struct {
+	Enabled  bool
+	Networks []netip.Prefix
+}
+
+// Allows reports whether addr is trusted for auto-approval: false unless
+// auto-approval is enabled and addr falls inside one of the trusted networks.
+func (a AutoApproveSettings) Allows(addr netip.Addr) bool {
+	if !a.Enabled || !addr.IsValid() {
+		return false
+	}
+	addr = addr.Unmap()
+	for _, n := range a.Networks {
+		if n.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 type TLSSettings struct {

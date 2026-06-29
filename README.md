@@ -141,9 +141,28 @@ Config precedence: flags > `PMOX_*` env > config file > defaults.
 | `registry_file` | `PMOX_REGISTRY_FILE` | `/var/lib/pmox/registry.json` |
 | `tls.mode` | `PMOX_TLS_MODE` | `auto` (auto/files/http) |
 | `hosts.file` / `hosts.ip` | `PMOX_HOSTS_FILE` / `PMOX_HOSTS_IP` | `/etc/hosts` / - |
+| `auto_approve.enabled` / `.private` / `.networks` | `PMOX_AUTO_APPROVE_ENABLED` | `false` / `false` / - |
 
 See [`config.example.yaml`](config.example.yaml), or scaffold one with
 `proxmox-license-proxy config init` (interactive setup: `setup server`).
+
+### Auto-approval
+
+By default a host that first contacts the server is registered as **PENDING** and
+must be approved with `server approve`. To skip that for trusted machines, enable
+auto-approval by source IP - new (and still-pending) hosts from a trusted network
+are approved on the spot, for any product (PVE/PBS/PMG). A `BLOCKED`/`REJECTED`
+host is never re-approved automatically.
+
+```yaml
+auto_approve:
+  enabled: true
+  private: true                 # trust RFC1918 / ULA / loopback / link-local
+  networks: ["100.64.0.0/10"]   # optional extra CIDRs
+```
+
+The match is on the TCP source address, so put the proxy on the same L2/L3 as the
+hosts (no NAT between them) for it to be meaningful.
 
 ## Commands
 

@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	nethttp "net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -187,16 +189,35 @@ func (s *Server) handleVerify(w nethttp.ResponseWriter, r *nethttp.Request) {
 
 	w.Header().Set("Content-Type", "text/xml; charset=UTF-8")
 
-	res := s.app.Verify(dir, key, token)
+	clientIP := clientAddr(r)
+	autoApprove := s.settings.AutoApprove.Allows(clientIP)
+
+	res := s.app.Verify(dir, key, token, autoApprove)
 	switch {
 	case res.RegisterErr != nil:
 		s.log.Error("host registration failed", "err", res.RegisterErr, "serverid", dir)
 	case res.Active:
-		s.log.Info("subscription active", "key", key, "serverid", dir, "product", res.Response.ProductName)
+		s.log.Info("subscription active", "key", key, "serverid", dir,
+			"product", res.Response.ProductName, "auto_approved", autoApprove, "remote", clientIP.String())
 	default:
 		s.log.Warn("subscription denied", "key", key, "serverid", dir, "host_status", res.HostStatus)
 	}
 	_, _ = w.Write([]byte(res.Response.RenderXML()))
+}
+
+// clientAddr returns the source IP of the request, parsed from RemoteAddr. It
+// returns an invalid Addr (which never matches a trusted network) when the
+// address cannot be determined.
+func clientAddr(r *nethttp.Request) netip.Addr {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return addr.Unmap()
 }
 
 func (s *Server) handleCert(w nethttp.ResponseWriter, r *nethttp.Request) {
