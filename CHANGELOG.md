@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.3.0...v2.0.0) (2026-06-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* add ACME-style v1 API to issue & manage subscriptions; move state to /etc/pmox ([#13](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/13))
+* **config:** the default registry_file is now /etc/pmox/registry.json. The package migrates existing data automatically; manual deployments that relied on the /var/lib/pmox default should set registry_file or move the file.
+
+### Features
+
+* add ACME-style v1 API to issue & manage subscriptions; move state to /etc/pmox ([#13](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/13)) ([f1e50aa](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/f1e50aa3bf074f4c00597881eb763c8c95424f41))
+* **cli:** guided menu for bare `subscription` and `client` ([62e58d9](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/62e58d9872403ce40f3e6b7f76a9663cbac6c8a4))
+* **config:** keep registry and auto cert under /etc/pmox ([e37b473](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/e37b473fe43c1d35ccb2922885c664b2e4466e45))
+
+
+### Bug Fixes
+
+* **cli:** create config dir with 0750 (gosec G301) ([d22df3b](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/d22df3bc299803af80f30be31d1a530f8ac910a5))
+* **cli:** default config init/setup output to /etc/pmox/config.yaml ([21ae6c7](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/21ae6c7263a5848a5863c6983e0119109dbba8c1))
+
 ## [1.3.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v1.2.0...v1.3.0) (2026-06-29)
 
 
