@@ -163,13 +163,23 @@ apk)
 	;;
 esac
 
-info "installed: $("$BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
+# Report the version from the package's own binary (/usr/bin), not from PATH:
+# an older 'client install' copy in /usr/local/bin would otherwise shadow it and
+# report the wrong version.
+PKG_BIN="/usr/bin/${BIN}"
+info "installed: $("$PKG_BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
+
+# Warn loudly if a different binary wins in PATH (the classic shadowing footgun).
+RESOLVED=$(command -v "$BIN" 2>/dev/null || true)
+if [ -n "$RESOLVED" ] && [ "$RESOLVED" != "$PKG_BIN" ]; then
+	echo
+	echo "   WARNING: '${BIN}' in your PATH is ${RESOLVED}, not the package at ${PKG_BIN}."
+	echo "            It shadows the installed package (likely an old 'client install')."
+	echo "            Fix: rm -f ${RESOLVED} && hash -r"
+fi
+
 echo
 info "next steps:"
 echo "   1. review the config:   ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
 echo "   2. start the service:   ${SUDO:+$SUDO }systemctl start ${BIN}"
-echo "   3. generate a lab key:  ${BIN} license generate"
-echo
-echo "   the package installs ${BIN} to /usr/bin. if an older 'client install'"
-echo "   left a copy in /usr/local/bin, remove it (or run 'hash -r') so the right"
-echo "   binary is used."
+echo "   3. generate a lab key:  ${PKG_BIN} license generate"
