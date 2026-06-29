@@ -1,0 +1,30 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard   # govet, staticcheck, errcheck, ineffassign, unused
+  enable:
+    - gosec       # crypto / exec / TLS code makes this worthwhile
+    - revive
+    - misspell
+    - bodyclose   # HTTP clients in certs/client
+    - errorlint
+    - gocritic
+  settings:
+    gosec:
+      excludes:
+        - G402   # InsecureSkipVerify in certs.Download is intentional (cert bootstrap)
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck

@@ -1,0 +1,16 @@
+# build output
+/bin/
+/dist/
+/proxmox-license-proxy
+
+# generated / runtime artifacts (only the repo-root ones; packaging/ ships its own)
+*.pem
+/config.yaml
+/registry.json
+/registry.json.lock
+*.tmp
+cover.out
+
+# editor / IDE
+.idea/
+.vscode/
