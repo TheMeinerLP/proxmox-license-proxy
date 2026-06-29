@@ -105,32 +105,43 @@ func (o *installChoices) ask() error {
 	return form.Run()
 }
 
-// discoverServer browses the local network and, if servers are found, lets the
-// user pick exactly which server IP to use. The choice fills in serverURL and
-// hostsIP; picking "Enter manually" leaves them empty for the form below.
+// discoverServer browses the local network and lets the user pick which server
+// address to use. It offers every discovered IP, the advertised .local hostname,
+// and always a "localhost" option for a single-host setup (server + client on the
+// same machine), where same-host mDNS may not loop back. The choice fills in
+// serverURL and hostsIP; "Enter manually" leaves them empty for the form below.
 func (o *installChoices) discoverServer() error {
 	fmt.Println("searching the local network for license-proxy servers (mDNS)...")
-	servers, err := discovery.Browse(context.Background(), 3*time.Second)
-	if err != nil || len(servers) == 0 {
-		return err
-	}
+	servers, _ := discovery.Browse(context.Background(), 3*time.Second)
 
 	type choice struct{ url, ip string }
 	var choices []choice
 	options := make([]huh.Option[int], 0)
+	add := func(label, u, ip string) {
+		options = append(options, huh.NewOption(label, len(choices)))
+		choices = append(choices, choice{url: u, ip: ip})
+	}
 	for _, s := range servers {
 		for _, ip := range s.IPs {
 			host := ip.String()
 			u := fmt.Sprintf("%s://%s", s.Scheme(), net.JoinHostPort(host, strconv.Itoa(s.Port)))
-			options = append(options, huh.NewOption(fmt.Sprintf("%s - %s", s.Instance, u), len(choices)))
-			choices = append(choices, choice{url: u, ip: host})
+			add(fmt.Sprintf("%s - %s", s.Instance, u), u, host)
+		}
+		// The advertised .local name works on the same host and across subnets,
+		// even when the routable IP list is empty.
+		if h := strings.TrimSuffix(s.Host, "."); h != "" {
+			u := fmt.Sprintf("%s://%s", s.Scheme(), net.JoinHostPort(h, strconv.Itoa(s.Port)))
+			add(fmt.Sprintf("%s - %s", s.Instance, u), u, h)
 		}
 	}
+	// Single-host fallback: the proxy is reachable on loopback whether or not
+	// mDNS round-tripped to this machine.
+	add("localhost (this machine) - https://localhost", "https://localhost", "127.0.0.1")
 	options = append(options, huh.NewOption("Enter manually", -1))
 
 	sel := -1
 	if err := huh.NewSelect[int]().
-		Title("Discovered servers - pick which server IP to use").
+		Title("Pick which server address to use").
 		Options(options...).
 		Value(&sel).
 		Run(); err != nil {
