@@ -56,10 +56,10 @@ var serverCmd = &cobra.Command{
 	Short: "Manage registered Proxmox hosts (approvals)",
 }
 
-func printServers(servers []subscription.Server) error {
+func printServers(servers []subscription.Server, emptyMsg string) error {
 	return render(servers, func() error {
 		if len(servers) == 0 {
-			fmt.Println("no registered hosts")
+			fmt.Println(emptyMsg)
 			return nil
 		}
 		tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
@@ -79,7 +79,8 @@ var serverListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return printServers(servers)
+		return printServers(servers,
+			"no registered hosts yet\nhosts appear here after they first contact the proxy - run `client install` on a Proxmox host")
 	},
 }
 
@@ -97,7 +98,8 @@ var serverPendingCmd = &cobra.Command{
 				pending = append(pending, srv)
 			}
 		}
-		return printServers(pending)
+		return printServers(pending,
+			"no hosts awaiting approval\n(hosts register as pending on first contact; auto_approve may approve them immediately)")
 	},
 }
 

@@ -3,16 +3,18 @@ package cli
 import (
 	"fmt"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/hosts"
 )
 
 var (
-	hostsFile   string
-	hostsIP     string
-	hostsDryRun bool
-	hostsYes    bool
+	hostsFile    string
+	hostsIP      string
+	hostsDryRun  bool
+	hostsYes     bool
+	hostsEnableY bool
 )
 
 var hostsCmd = &cobra.Command{
@@ -36,6 +38,26 @@ var hostsEnableCmd = &cobra.Command{
 		if ip == "" && settings.Hosts.IP.IsValid() {
 			ip = settings.Hosts.IP.String()
 		}
+		// Ask for the proxy IP when it is not configured and we can prompt, so
+		// the command does not silently fall back to an unexpected default.
+		if ip == "" && interactiveTTY() {
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewInput().Title("Proxy IP to point " + hostsNamesLabel() + " at").
+					Placeholder("e.g. 192.168.68.100").Value(&ip),
+			)).Run(); err != nil {
+				return err
+			}
+		}
+
+		// Editing /etc/hosts is system-wide; confirm on a terminal first. Scripts
+		// and systemd (non-interactive) proceed without blocking, as before.
+		if !hostsDryRun && interactiveTTY() {
+			if err := confirm(cmd, hostsEnableY,
+				fmt.Sprintf("Point %s at %s in %s?", hostsNamesLabel(), ipOrDefault(ip), resolveHostsFile())); err != nil {
+				return err
+			}
+		}
+
 		out, err := hosts.Enable(resolveHostsFile(), ip, settings.Hosts.Names, hostsDryRun)
 		if err != nil {
 			return err
@@ -47,6 +69,23 @@ var hostsEnableCmd = &cobra.Command{
 		fmt.Printf("updated %s:\n%s", resolveHostsFile(), out)
 		return nil
 	},
+}
+
+// hostsNamesLabel renders the managed hostnames for prompts, defaulting to the
+// Proxmox shop host when none are configured.
+func hostsNamesLabel() string {
+	if len(settings.Hosts.Names) == 0 {
+		return "shop.proxmox.com"
+	}
+	return fmt.Sprintf("%v", settings.Hosts.Names)
+}
+
+// ipOrDefault shows the IP that will be written, making the default explicit.
+func ipOrDefault(ip string) string {
+	if ip == "" {
+		return "127.0.0.1 (default)"
+	}
+	return ip
 }
 
 var hostsDisableCmd = &cobra.Command{
@@ -97,4 +136,5 @@ func init() {
 	hostsDisableCmd.Flags().BoolVarP(&hostsYes, "yes", "y", false, "skip confirmation prompt")
 
 	hostsEnableCmd.Flags().StringVar(&hostsIP, "ip", "", "proxy IP to point the names at (default: config hosts.ip)")
+	hostsEnableCmd.Flags().BoolVarP(&hostsEnableY, "yes", "y", false, "skip confirmation prompt")
 }

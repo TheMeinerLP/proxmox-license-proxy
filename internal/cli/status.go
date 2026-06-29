@@ -59,7 +59,20 @@ var statusCmd = &cobra.Command{
 			fmt.Fprintf(tw, "hosts\t%d (%d pending approval)\n", report.Hosts, report.Pending)
 			fmt.Fprintf(tw, "listen\t%s\n", report.Listen)
 			fmt.Fprintf(tw, "tls mode\t%s\n", report.TLSMode)
-			return tw.Flush()
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+
+			// Nudge toward the obvious next action when the registry is empty.
+			switch {
+			case report.Licenses == 0:
+				fmt.Println("\nnext: mint a lab key with `subscription generate`")
+			case report.Hosts == 0:
+				fmt.Println("\nnext: register a Proxmox host with `client install` (run it on the host)")
+			case report.Pending > 0:
+				fmt.Println("\nnext: approve waiting hosts with `server approve`")
+			}
+			return nil
 		})
 	},
 }

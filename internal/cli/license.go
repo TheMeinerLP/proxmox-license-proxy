@@ -268,7 +268,7 @@ var licenseListCmd = &cobra.Command{
 		}
 		return render(licenses, func() error {
 			if len(licenses) == 0 {
-				fmt.Println("no subscriptions")
+				fmt.Println("no subscriptions yet\nmint a lab key with: proxmox-license-proxy subscription generate")
 				return nil
 			}
 			tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)

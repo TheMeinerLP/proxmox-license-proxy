@@ -206,10 +206,15 @@ hosts (no NAT between them) for it to be meaningful.
 
 ## Commands
 
-`serve`, `status`, `subscription {add,generate,list,show,rm,set-due,export,import}`
+`serve`, `status`, `doctor`, `subscription {add,generate,list,show,rm,set-due,export,import}`
 - `server {list,pending,approve,reject,block,rm}`, `client {install,uninstall,discover}`
 - `cert {generate,install}`, `hosts {enable,disable,status}`
 - `config {init,show,path}`, `version`, `completion`
+
+`serve` prints a startup summary (reachable URLs, TLS mode, CA fingerprint and
+next steps) before it starts logging. Stuck? `doctor` runs read-only checks - a
+shadowing binary on PATH, an unreadable registry, an expired/missing TLS cert, a
+missing `/etc/hosts` entry or untrusted CA - and prints a hint for each.
 
 `subscription generate` mints a **lab-only** key: it is format-valid (so the emulation
 works) but deliberately marked - the key carries a visible `1ab` ("lab") signature
@@ -235,6 +240,9 @@ ids or keys around:
   the new date) from a prompt
 - `subscription add` - prompts for the key (tip: `subscription generate` mints one)
 - `config init` / `setup server` - a full wizard (TLS, registry, auto-approve, ...)
+- `cert generate` / `cert install` - prompt for hostnames / the cert source, and
+  show the fingerprint before touching the trust store
+- `hosts enable` - confirms before editing `/etc/hosts` (and asks for the IP if unset)
 
 The flags still work for scripts: `approve`/`reject`/`block` accept multiple
 server ids; `approve`/`reject` also take `--all` (all pending hosts) and `--note`.

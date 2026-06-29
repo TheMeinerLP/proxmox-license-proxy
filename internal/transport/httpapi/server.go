@@ -99,6 +99,16 @@ func (s *Server) setupTLS() error {
 	return nil
 }
 
+// CertFingerprint returns the SHA-256 fingerprint of the served certificate so
+// the serve command can print it for trust-on-first-use verification. Empty in
+// http mode (no certificate).
+func (s *Server) CertFingerprint() string {
+	if len(s.certPEM) == 0 {
+		return ""
+	}
+	return certs.Fingerprint(s.certPEM)
+}
+
 // maxRequestBody caps any request body; the verify form and license JSON are
 // tiny, so this only bounds abusive clients.
 const maxRequestBody = 1 << 16 // 64 KiB

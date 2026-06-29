@@ -116,6 +116,16 @@ func WriteKeyPair(certPath, keyPath string, certPEM, keyPEM []byte) error {
 	return os.WriteFile(keyPath, keyPEM, 0o600)
 }
 
+// Leaf parses and returns the first (leaf) certificate from a PEM bundle, for
+// callers that need its details (validity window, SANs) - e.g. `doctor`.
+func Leaf(certPEM []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, errors.New("no PEM certificate found")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
+
 // Fingerprint returns the SHA-256 fingerprint of the first certificate in the
 // PEM, formatted like "AB:CD:...". It lets a user verify a bootstrapped CA out
 // of band (e.g. against `cert generate` output on the server).

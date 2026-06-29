@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -50,6 +52,7 @@ var serveCmd = &cobra.Command{
 		}
 
 		// Announce on the local network so clients can auto-discover us.
+		mdnsName := ""
 		if serveMDNS {
 			port := portFromListen(settings.Listen)
 			txt := []string{
@@ -63,12 +66,78 @@ var serveCmd = &cobra.Command{
 				log.Warn("mDNS advertise failed", "err", aerr)
 			} else {
 				log.Info("advertising via mDNS", "service", discovery.ServiceType, "port", port)
+				if h, herr := os.Hostname(); herr == nil && h != "" {
+					mdnsName = h + ".local"
+				}
 				defer adv.Close()
 			}
 		}
 
+		printServeSummary(cmd.OutOrStdout(), srv, mdnsName)
 		return srv.Run()
 	},
+}
+
+// printServeSummary prints a human-friendly, copy-pasteable summary to stdout
+// right before the server blocks: the URL hosts should use, the TLS mode and CA
+// fingerprint (for trust-on-first-use verification), the mDNS name and the
+// typical next steps. The structured slog lines still go to stderr underneath.
+func printServeSummary(w io.Writer, srv *httpserver.Server, mdnsName string) {
+	port := portFromListen(settings.Listen)
+	scheme := "https"
+	if settings.TLS.Mode == config.TLSModeHTTP {
+		scheme = "http"
+	}
+
+	fmt.Fprintf(w, "\nproxmox-license-proxy is listening on %s (%s).\n\n", settings.Listen, scheme)
+
+	fmt.Fprintln(w, "  Reachable at:")
+	for _, ip := range localIPv4s() {
+		fmt.Fprintf(w, "    %s://%s:%d\n", scheme, ip, port)
+	}
+	if mdnsName != "" {
+		fmt.Fprintf(w, "    %s://%s:%d   (mDNS, auto-discovered by `client install`)\n", scheme, mdnsName, port)
+	}
+
+	fmt.Fprintf(w, "\n  TLS mode:    %s\n", settings.TLS.Mode)
+	if fp := srv.CertFingerprint(); fp != "" {
+		fmt.Fprintf(w, "  CA SHA-256:  %s\n", fp)
+		fmt.Fprintln(w, "               (verify this on the Proxmox host when `client install` prints it)")
+	}
+
+	fmt.Fprintln(w, "\n  Next steps:")
+	fmt.Fprintln(w, "    1. On each Proxmox host:  proxmox-license-proxy client install")
+	fmt.Fprintln(w, "    2. Mint a lab key:        proxmox-license-proxy subscription generate")
+	fmt.Fprintln(w, "    3. Approve the host:      proxmox-license-proxy server approve")
+	fmt.Fprintln(w, "\n  Request logs follow below. Press Ctrl-C to stop.")
+	fmt.Fprintln(w)
+}
+
+// localIPv4s returns this machine's non-loopback IPv4 addresses, so the serve
+// summary can show admins exactly which URLs a Proxmox host can reach. Falls
+// back to the hostname when no address can be enumerated.
+func localIPv4s() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		if h, herr := os.Hostname(); herr == nil && h != "" {
+			return []string{h}
+		}
+		return nil
+	}
+	var out []string
+	for _, a := range addrs {
+		ipnet, ok := a.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() || ipnet.IP.IsLinkLocalUnicast() {
+			continue
+		}
+		if ip4 := ipnet.IP.To4(); ip4 != nil {
+			out = append(out, ip4.String())
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, "127.0.0.1")
+	}
+	return out
 }
 
 // portFromListen extracts the TCP port from a listen address like ":443" or

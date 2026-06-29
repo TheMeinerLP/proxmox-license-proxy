@@ -3,8 +3,11 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/certs"
@@ -30,6 +33,33 @@ var certGenerateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate a self-signed certificate for shop.proxmox.com",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// On a terminal, confirm the hostnames and validity instead of silently
+		// using flag defaults; passing --host/--days skips the matching prompt.
+		if interactiveTTY() && !(cmd.Flags().Changed("host") && cmd.Flags().Changed("days")) {
+			hostsCSV := strings.Join(certHosts, ", ")
+			daysStr := strconv.Itoa(certDays)
+			fields := []huh.Field{}
+			if !cmd.Flags().Changed("host") {
+				fields = append(fields, huh.NewInput().Title("Hostname(s) / IP(s) for the certificate").
+					Description("Comma-separated. Proxmox talks to shop.proxmox.com, so keep that.").
+					Value(&hostsCSV))
+			}
+			if !cmd.Flags().Changed("days") {
+				fields = append(fields, huh.NewInput().Title("Validity in days").Value(&daysStr).
+					Validate(func(s string) error { _, err := strconv.Atoi(s); return err }))
+			}
+			if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+				return err
+			}
+			certHosts = parseNetworks(hostsCSV) // reuse the comma/space splitter
+			if d, err := strconv.Atoi(daysStr); err == nil {
+				certDays = d
+			}
+		}
+		if len(certHosts) == 0 {
+			certHosts = []string{"shop.proxmox.com"}
+		}
+
 		certPEM, keyPEM, err := certs.GenerateSelfSigned(certHosts, time.Duration(certDays)*24*time.Hour)
 		if err != nil {
 			return err
@@ -42,6 +72,8 @@ var certGenerateCmd = &cobra.Command{
 			return err
 		}
 		fmt.Printf("wrote %s and %s for %v (valid %d days)\n", certOutCert, certOutKey, certHosts, certDays)
+		fmt.Printf("  SHA-256: %s\n", certs.Fingerprint(certPEM))
+		fmt.Printf("  next: trust it on a Proxmox host with `cert install --cert %s` (or `client install`)\n", certOutCert)
 		return nil
 	},
 }
@@ -50,9 +82,36 @@ var certInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Trust a certificate (from a file or the server's /ca.crt)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// On a terminal with no source given, ask whether to fetch from the
+		// running proxy or read a local file - the two real options.
+		if interactiveTTY() && certFrom == "" && !cmd.Flags().Changed("cert") {
+			source := "url"
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewSelect[string]().Title("Where is the certificate?").
+					Options(
+						huh.NewOption("Fetch from the proxy's /ca.crt URL", "url"),
+						huh.NewOption("Read a local PEM file", "file"),
+					).Value(&source),
+			)).Run(); err != nil {
+				return err
+			}
+			if source == "url" {
+				if err := huh.NewForm(huh.NewGroup(
+					huh.NewInput().Title("Proxy URL").Placeholder("https://192.168.68.100/ca.crt").Value(&certFrom),
+				)).Run(); err != nil {
+					return err
+				}
+			} else {
+				if err := huh.NewForm(huh.NewGroup(
+					huh.NewInput().Title("Certificate file").Placeholder("cert.pem").Value(&certInstall),
+				)).Run(); err != nil {
+					return err
+				}
+			}
+		}
+
 		var certPEM []byte
 		var err error
-
 		switch {
 		case certFrom != "":
 			certPEM, err = certs.Download(certFrom)
@@ -62,6 +121,14 @@ var certInstallCmd = &cobra.Command{
 		default:
 			certPEM, err = fileio.ReadFile(certInstall)
 			if err != nil {
+				return err
+			}
+		}
+
+		// Show the fingerprint and confirm before touching the system trust store.
+		fmt.Printf("certificate SHA-256: %s\n", certs.Fingerprint(certPEM))
+		if interactiveTTY() {
+			if err := confirm(cmd, false, fmt.Sprintf("Trust this certificate (install into %s)?", certInstDest)); err != nil {
 				return err
 			}
 		}
