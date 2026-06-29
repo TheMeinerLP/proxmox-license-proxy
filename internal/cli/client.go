@@ -197,6 +197,11 @@ func (o *installChoices) run() error {
 		if err != nil {
 			return fmt.Errorf("download certificate: %w", err)
 		}
+		// Trust-on-first-use: show the fingerprint so the user can confirm the CA
+		// out of band (compare with `cert generate` output on the server).
+		if fp := certs.Fingerprint(pem); fp != "" {
+			fmt.Printf("server CA SHA-256: %s\n", fp)
+		}
 		dst := "/usr/local/share/ca-certificates/pmox.crt"
 		if err := certs.InstallTrust(pem, dst); err != nil {
 			return err
@@ -271,6 +276,7 @@ func completionPath(shell string) (string, func(*os.File) error) {
 func installShellCompletion(shell string) (string, error) {
 	path, gen := completionPath(shell)
 	if dir := filepath.Dir(path); dir != "" {
+		//nolint:gosec // G301: completion dirs (/usr/share/...) are world-readable (0755) by design
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "", err
 		}

@@ -8,6 +8,7 @@ package certs
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -20,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -70,9 +72,26 @@ func GenerateSelfSigned(hosts []string, validFor time.Duration) (certPEM, keyPEM
 	return certPEM, keyPEM, nil
 }
 
+// Fingerprint returns the SHA-256 fingerprint of the first certificate in the
+// PEM, formatted like "AB:CD:...". It lets a user verify a bootstrapped CA out
+// of band (e.g. against `cert generate` output on the server).
+func Fingerprint(certPEM []byte) string {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return ""
+	}
+	sum := sha256.Sum256(block.Bytes)
+	parts := make([]string, len(sum))
+	for i, b := range sum {
+		parts[i] = fmt.Sprintf("%02X", b)
+	}
+	return strings.Join(parts, ":")
+}
+
 // InstallTrust copies a certificate into the system trust store and refreshes
 // it. Requires root.
 func InstallTrust(certPEM []byte, dest string) error {
+	//nolint:gosec // G306: a CA cert is public and must be world-readable in the trust store
 	if err := os.WriteFile(dest, certPEM, 0o644); err != nil {
 		return fmt.Errorf("write %s (need root?): %w", dest, err)
 	}
@@ -100,13 +119,17 @@ func RemoveTrust(dest string) (bool, error) {
 }
 
 // Download fetches a certificate from the server's cert endpoint. TLS
-// verification is skipped on purpose: this is the bootstrap step before the
-// certificate is trusted.
+// verification is skipped on purpose: this is a one-time trust-on-first-use
+// bootstrap that runs BEFORE the certificate is trusted, so there is nothing to
+// verify against yet. Callers should show Fingerprint(result) so the user can
+// confirm the CA out of band.
 func Download(url string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 15 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // bootstrap trust
+			// G402: TOFU bootstrap fetch of the self-signed CA before it is trusted;
+			// the caller verifies the fingerprint out of band.
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // G402: see comment above
 		},
 	}
 	resp, err := client.Get(url)
