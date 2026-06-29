@@ -266,7 +266,9 @@ for the subscription nag. `client enroll`:
 
 1. detects the installed products (PVE/PBS/PMG - a host may run several),
 2. trusts the proxy CA (pinned by fingerprint) and creates an **account key**,
-3. registers an ACME account and **orders a subscription per product**,
+3. registers an ACME account and **orders a subscription per product**
+   (auto-picking the PVE socket tier from the host's CPU sockets, so a
+   2-/4-socket host is not handed a 1-socket key `pvesubscription` rejects),
 4. installs each issued key with the product's own `… subscription set` tool.
 
 ```sh

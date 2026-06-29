@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // Product is a Proxmox product detected on the host, together with the command
@@ -75,6 +76,46 @@ func anyDir(dirs []string, exists func(string) bool) bool {
 func dirExists(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.IsDir()
+}
+
+// DetectSockets returns the number of physical CPU sockets on this host and
+// whether the count is trustworthy. It counts distinct "physical id" entries in
+// /proc/cpuinfo (the portable way, no external tools); it falls back to
+// (1, false) when /proc/cpuinfo is unreadable or omits the field (common in
+// containers/VMs) so callers can keep the conservative 1-socket default.
+func DetectSockets() (int, bool) {
+	data, err := os.ReadFile("/proc/cpuinfo")
+	if err != nil {
+		return 1, false
+	}
+	ids := map[string]struct{}{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "physical id") {
+			if _, v, ok := strings.Cut(line, ":"); ok {
+				ids[strings.TrimSpace(v)] = struct{}{}
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return 1, false
+	}
+	return len(ids), true
+}
+
+// PVESocketTier maps a physical socket count to the smallest PVE license tier
+// (1, 2, 4 or 8) that covers it; PVE keys only encode those tiers. Counts above
+// 8 clamp to 8.
+func PVESocketTier(sockets int) string {
+	switch {
+	case sockets <= 1:
+		return "1"
+	case sockets <= 2:
+		return "2"
+	case sockets <= 4:
+		return "4"
+	default:
+		return "8"
+	}
 }
 
 // SetKey installs a subscription key for the product by running its management

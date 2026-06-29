@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -65,6 +66,16 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 		codes[i] = p.Code
 	}
 	fmt.Printf("enrolling products: %s\n", strings.Join(codes, ", "))
+
+	// PVE keys are licensed per CPU socket and pvesubscription rejects a key with
+	// fewer sockets than the host has. Auto-pick the matching tier when the user
+	// did not specify one, so a 2-/4-socket host is not handed a 1-socket key.
+	if enrollSockets == "" && slices.Contains(codes, "pve") {
+		if n, ok := client.DetectSockets(); ok {
+			enrollSockets = client.PVESocketTier(n)
+			fmt.Printf("detected %d CPU socket(s); using PVE socket tier %s\n", n, enrollSockets)
+		}
+	}
 
 	serverid := enrollServerID
 	if serverid == "" {
