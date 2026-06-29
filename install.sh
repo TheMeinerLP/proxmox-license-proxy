@@ -13,14 +13,21 @@
 #   curl -fsSL .../install.sh | PMOX_CLI_ONLY=1 sh
 #   curl -fsSL .../install.sh | sh -s -- --cli-only
 #
-# Pin a version with VERSION=x.y.z. Override the CLI-only binary dir with BINDIR.
-# For private / internal lab use only - see the README warning.
+# Pin a version with PMOX_VERSION (set it on the `sh`, not the `curl`, when
+# piping):
+#
+#   curl -fsSL .../install.sh | PMOX_VERSION=2.0.0 sh
+#
+# Override the CLI-only binary dir with PMOX_BINDIR. PMOX_VERSION/PMOX_BINDIR
+# also accept the legacy bare VERSION/BINDIR names. Private / lab use only.
 set -eu
 
 REPO="TheMeinerLP/proxmox-license-proxy"
 BIN="proxmox-license-proxy"
 CLI_ONLY="${PMOX_CLI_ONLY:-0}"
-BINDIR="${BINDIR:-/usr/local/bin}"
+# Honour the PMOX_* convention; keep the bare names as a back-compat fallback.
+BINDIR="${PMOX_BINDIR:-${BINDIR:-/usr/local/bin}}"
+PIN_VERSION="${PMOX_VERSION:-${VERSION:-}}"
 
 for arg in "$@"; do
 	case "$arg" in
@@ -80,9 +87,8 @@ if [ "$CLI_ONLY" -ne 1 ]; then
 	fi
 fi
 
-# --- resolve version (latest unless VERSION is set) -----------------------
-VERSION="${VERSION:-}"
-if [ -z "$VERSION" ]; then
+# --- resolve version (latest unless PMOX_VERSION / VERSION is set) ---------
+if [ -z "$PIN_VERSION" ]; then
 	info "resolving latest release..."
 	if [ "$HAVE_CURL" -eq 1 ]; then
 		TAG=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
@@ -91,11 +97,12 @@ if [ -z "$VERSION" ]; then
 		TAG=$(wget -q -S -O /dev/null "https://github.com/$REPO/releases/latest" 2>&1 |
 			sed -n 's#.*[Ll]ocation:.*tag/\(.*\)#\1#p' | tr -d '\r' | tail -1)
 	fi
-	[ -n "$TAG" ] || err "could not determine latest version; set VERSION=x.y.z"
+	[ -n "$TAG" ] || err "could not determine latest version; set PMOX_VERSION=x.y.z"
 	VERSION="${TAG#v}"
 else
-	VERSION="${VERSION#v}"
+	VERSION="${PIN_VERSION#v}"
 	TAG="v${VERSION}"
+	info "pinned to ${TAG}"
 fi
 
 TMP=$(mktemp -d)

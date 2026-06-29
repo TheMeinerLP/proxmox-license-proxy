@@ -49,7 +49,9 @@ on a single host)? Use CLI-only mode - it installs the binary to
 curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | PMOX_CLI_ONLY=1 sh
 ```
 
-Pin a version with `VERSION=0.2.0`, or review the script first:
+Pin a version with `PMOX_VERSION` (set it on the `sh`, not the `curl`, when
+piping):
+`curl -fsSL .../install.sh | PMOX_VERSION=2.0.0 sh`. Or review the script first:
 `curl -fsSL .../install.sh -o install.sh && less install.sh && sh install.sh`.
 
 ---
