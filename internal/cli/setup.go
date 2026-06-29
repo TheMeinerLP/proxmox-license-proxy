@@ -156,6 +156,9 @@ var setupServerCmd = &cobra.Command{
 			return err
 		}
 		v := applyServerWizard(choices)
+		if err := ensureDirFor(setupOut); err != nil {
+			return fmt.Errorf("create directory for %s (need root?): %w", setupOut, err)
+		}
 		if err := v.WriteConfigAs(setupOut); err != nil {
 			return fmt.Errorf("write %s: %w", setupOut, err)
 		}
@@ -173,5 +176,5 @@ var setupServerCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(setupCmd)
 	setupCmd.AddCommand(setupServerCmd)
-	setupServerCmd.Flags().StringVar(&setupOut, "out", "config.yaml", "output config file")
+	setupServerCmd.Flags().StringVar(&setupOut, "out", defaultConfigPath, "output config file")
 }

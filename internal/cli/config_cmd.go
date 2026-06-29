@@ -4,9 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
+
+// defaultConfigPath is where the server (and its systemd unit) reads its config,
+// and therefore the default target for `config init` / `setup server`.
+const defaultConfigPath = "/etc/pmox/config.yaml"
+
+// ensureDirFor creates the parent directory of path (e.g. /etc/pmox) so writing
+// the config there works on a fresh host, not only after the package created it.
+func ensureDirFor(path string) error {
+	return os.MkdirAll(filepath.Dir(path), 0o755)
+}
 
 // defaultConfigYAML is the scaffold written by `config init`. It mirrors the
 // defaults applied by config.Load, with every key shown commented intent.
@@ -57,6 +68,9 @@ var configInitCmd = &cobra.Command{
 			return fmt.Errorf("%s already exists; use --force to overwrite", configInitOut)
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
+		}
+		if err := ensureDirFor(configInitOut); err != nil {
+			return fmt.Errorf("create directory for %s (need root?): %w", configInitOut, err)
 		}
 
 		// Guided by default on a terminal; --defaults forces the static scaffold.
@@ -117,7 +131,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configInitCmd, configShowCmd, configPathCmd)
 
-	configInitCmd.Flags().StringVar(&configInitOut, "out", "config.yaml", "output path")
+	configInitCmd.Flags().StringVar(&configInitOut, "out", defaultConfigPath, "output path")
 	configInitCmd.Flags().BoolVar(&configInitForce, "force", false, "overwrite existing file")
 	configInitCmd.Flags().BoolVar(&configInitDefaults, "defaults", false, "skip the wizard; write a commented default scaffold")
 }
