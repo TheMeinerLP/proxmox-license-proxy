@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
 
 // ensureSettings loads the config on demand. Shell completion does not run the
 // PersistentPreRunE hook, so completion functions must load settings themselves.
@@ -22,12 +26,18 @@ func completeLicenseKeys(cmd *cobra.Command, args []string, toComplete string) (
 	}
 	out := make([]string, 0, len(licenses))
 	for _, l := range licenses {
-		out = append(out, l.Key)
+		// "key\tdescription" - zsh/fish show the description next to each key.
+		desc := string(l.Status)
+		if l.Product != "" {
+			desc = l.Product + " " + desc
+		}
+		out = append(out, fmt.Sprintf("%s\t%s", l.Key, desc))
 	}
 	return out, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeServerIDs completes an argument with the registered host ids.
+// completeServerIDs completes an argument with the registered host ids, each
+// annotated with its status (and product) so the right host is easy to pick.
 func completeServerIDs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	ensureSettings()
 	if settings == nil {
@@ -39,7 +49,11 @@ func completeServerIDs(cmd *cobra.Command, args []string, toComplete string) ([]
 	}
 	out := make([]string, 0, len(servers))
 	for _, srv := range servers {
-		out = append(out, srv.ServerID)
+		desc := string(srv.Status)
+		if srv.Product != "" {
+			desc += " " + srv.Product
+		}
+		out = append(out, fmt.Sprintf("%s\t%s", srv.ServerID, desc))
 	}
 	return out, cobra.ShellCompDirectiveNoFileComp
 }
