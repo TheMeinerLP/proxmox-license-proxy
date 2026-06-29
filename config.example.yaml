@@ -5,7 +5,7 @@
 
 listen: ":443"
 log: "info" # debug | info | warn | error
-registry_file: "/etc/pmox/registry.json"
+registry_file: "/var/lib/pmox/registry.json"
 
 tls:
   mode: "auto" # auto (self-signed) | files | http (plaintext, behind a proxy)

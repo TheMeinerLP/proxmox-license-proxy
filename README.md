@@ -138,7 +138,7 @@ Config precedence: flags > `PMOX_*` env > config file > defaults.
 |---|---|---|
 | `listen` | `PMOX_LISTEN` | `:443` |
 | `log` | `PMOX_LOG` | `info` |
-| `registry_file` | `PMOX_REGISTRY_FILE` | `/etc/pmox/registry.json` |
+| `registry_file` | `PMOX_REGISTRY_FILE` | `/var/lib/pmox/registry.json` |
 | `tls.mode` | `PMOX_TLS_MODE` | `auto` (auto/files/http) |
 | `hosts.file` / `hosts.ip` | `PMOX_HOSTS_FILE` / `PMOX_HOSTS_IP` | `/etc/hosts` / - |
 

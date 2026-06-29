@@ -23,7 +23,7 @@ var setupServerCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listen := ":443"
 		tlsMode := "auto"
-		registry := "/etc/pmox/registry.json"
+		registry := "/var/lib/pmox/registry.json"
 		logLevel := "info"
 
 		form := huh.NewForm(

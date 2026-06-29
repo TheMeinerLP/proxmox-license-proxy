@@ -21,7 +21,10 @@ func Load(cfgFile string) (*Settings, string, error) {
 	// Defaults (lowest precedence) - the tool works without any config file.
 	v.SetDefault("listen", ":443")
 	v.SetDefault("log", "info")
-	v.SetDefault("registry_file", "/etc/pmox/registry.json")
+	// Match the packaged service's writable state dir, so the CLI and the
+	// service agree on the registry even when no config file is found (/etc is
+	// read-only for the unit; mutable state belongs under /var/lib).
+	v.SetDefault("registry_file", "/var/lib/pmox/registry.json")
 	v.SetDefault("tls.mode", "auto")
 	v.SetDefault("hosts.file", "/etc/hosts")
 

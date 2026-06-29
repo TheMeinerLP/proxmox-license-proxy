@@ -13,7 +13,7 @@ import (
 const defaultConfigYAML = `# proxmox-license-proxy configuration
 listen: ":443"
 log: "info"
-registry_file: "/etc/pmox/registry.json"
+registry_file: "/var/lib/pmox/registry.json"
 
 tls:
   mode: "auto"          # auto | files | http
