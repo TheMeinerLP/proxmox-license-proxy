@@ -16,6 +16,8 @@ services:
       PMOX_TLS_MODE: "auto"          # auto | files | http
       PMOX_REGISTRY_FILE: "/data/registry.json"
       PMOX_LOG: "info"
+      # Enable the /api/v1/admin/* endpoints (host/account approval, revocation):
+      # PMOX_API_ADMIN_TOKEN: "change-me-to-a-long-random-string"
 
     # The registry (licenses + auto-registered hosts) persists here.
     volumes:

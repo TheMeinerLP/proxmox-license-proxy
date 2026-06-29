@@ -127,9 +127,10 @@ if [ "$CLI_ONLY" -eq 1 ]; then
 	info "installed: $("$BINDIR/$BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
 	echo
 	info "next steps (no service installed):"
-	echo "   1. generate a lab key:  ${BIN} license generate"
-	echo "   2. run the server:      ${BIN} serve --config your-config.yaml"
-	echo "      (scaffold one with:  ${BIN} setup server)"
+	echo "   1. run the server:      ${BIN} serve   (scaffold a config: ${BIN} config init)"
+	echo "   2. on each Proxmox host: ${BIN} client enroll --server https://<this-host>"
+	echo "      approve it here:      ${BIN} account approve <thumbprint>"
+	echo "      (or mint a key by hand: ${BIN} subscription generate)"
 	exit 0
 fi
 
@@ -180,6 +181,8 @@ fi
 
 echo
 info "next steps:"
-echo "   1. review the config:   ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
-echo "   2. start the service:   ${SUDO:+$SUDO }systemctl start ${BIN}"
-echo "   3. generate a lab key:  ${PKG_BIN} license generate"
+echo "   1. review the config:    ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
+echo "   2. start the service:    ${SUDO:+$SUDO }systemctl start ${BIN}"
+echo "   3. on each Proxmox host: ${BIN} client enroll --server https://<this-host>"
+echo "      approve it here:      ${PKG_BIN} account approve <thumbprint>"
+echo "      (or mint a key by hand: ${PKG_BIN} subscription generate)"
