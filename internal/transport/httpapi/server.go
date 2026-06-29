@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"proxmox-license-proxy/internal/acme"
 	"proxmox-license-proxy/internal/app"
 	"proxmox-license-proxy/internal/certs"
 	"proxmox-license-proxy/internal/config"
@@ -40,6 +41,9 @@ type Server struct {
 	certPEM []byte // also served at /ca.crt
 	keyPEM  []byte
 
+	// nonces backs the ACME-style anti-replay protection on the /api/v1 endpoints.
+	nonces *acme.NonceStore
+
 	// ready flips to false on shutdown so /readyz fails and load balancers
 	// drain the pod before it stops.
 	ready      atomic.Bool
@@ -48,7 +52,14 @@ type Server struct {
 
 // New builds a server and prepares its TLS material.
 func New(settings *config.Settings, store *registry.Store, log *slog.Logger) (*Server, error) {
-	s := &Server{settings: settings, store: store, app: app.New(store), log: log, drainDelay: time.Second}
+	s := &Server{
+		settings:   settings,
+		store:      store,
+		app:        app.New(store),
+		log:        log,
+		drainDelay: time.Second,
+		nonces:     acme.NewNonceStore(10 * time.Minute),
+	}
 	if err := s.setupTLS(); err != nil {
 		return nil, err
 	}
@@ -138,6 +149,10 @@ func (s *Server) Handler() nethttp.Handler {
 	}
 	r.Route("/api/subscriptions", subscriptionRoutes)
 	r.Route("/api/licenses", subscriptionRoutes)
+
+	// Versioned, ACME-style API: account keys + JWS for clients, a bearer token
+	// for admin management. See apiv1.go.
+	r.Route("/api/v1", s.routesV1)
 
 	// Host management REST API.
 	r.Route("/api/servers", func(r chi.Router) {

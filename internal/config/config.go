@@ -9,6 +9,14 @@ type Config struct {
 	Hosts       Hosts       `mapstructure:"hosts"`
 	Offline     Offline     `mapstructure:"offline"`
 	AutoApprove AutoApprove `mapstructure:"auto_approve"`
+	API         API         `mapstructure:"api"`
+}
+
+// API configures the versioned REST API (/api/v1). The ACME-style client
+// endpoints are always on; AdminToken (when set) gates the /api/v1/admin/*
+// management endpoints behind a bearer token.
+type API struct {
+	AdminToken string `mapstructure:"admin_token"`
 }
 
 // AutoApprove configures automatic approval of hosts that first contact the

@@ -51,6 +51,7 @@ func (c *Config) ToSettings() (*Settings, error) {
 			PublicKey:  c.Offline.PublicKey,
 		},
 		AutoApprove: autoApprove,
+		API:         APISettings{AdminToken: strings.TrimSpace(c.API.AdminToken)},
 	}, nil
 }
 
