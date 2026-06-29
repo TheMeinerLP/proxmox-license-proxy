@@ -287,6 +287,31 @@ proxmox-license-proxy account approve <thumbprint>
 The server can **invalidate** a subscription at any time (`server`/admin API or
 the account itself); the host drops to unsubscribed on its next check.
 
+### Automatic renew (systemd timer)
+
+The packages ship a certbot-style renew timer (disabled by default, since the
+same package runs on the proxy host too). On a Proxmox host, point it at the
+proxy and enable it:
+
+```sh
+# on the Proxmox host
+sudo cp /etc/pmox/enroll.env.example /etc/pmox/enroll.env
+sudo $EDITOR /etc/pmox/enroll.env          # set PMOX_ENROLL_SERVER=https://<proxy>
+sudo systemctl enable --now proxmox-license-proxy-enroll.timer
+```
+
+The timer runs `client enroll` daily. Because enroll is idempotent (the server
+de-duplicates by account+product and re-setting an unchanged key is a no-op), a
+run safely **picks up a just-approved account**, re-applies a re-issued key or
+heals a cleared one — without touching anything when all is current. Every
+`client enroll` flag has a `PMOX_ENROLL_*` env equivalent for `enroll.env`; the
+unit stays inert until `/etc/pmox/enroll.env` exists (`ConditionPathExists`).
+
+Note the ACME-issued subscriptions do **not** hard-expire: Proxmox re-checks
+against the proxy on its own schedule and the proxy keeps answering `active`
+until you revoke. The renew timer is about approval pickup and self-healing, not
+a looming expiry.
+
 ## REST API
 
 Legacy (unversioned): `POST /modules/servers/licensing/verify.php`, `GET /ca.crt`,

@@ -40,6 +40,10 @@ var clientEnrollCmd = &cobra.Command{
 }
 
 func runClientEnroll(cmd *cobra.Command, args []string) error {
+	// Fill unset flags from PMOX_ENROLL_* env vars (flag > env > default), so the
+	// systemd renew timer can be driven entirely by /etc/pmox/enroll.env.
+	applyEnrollEnvDefaults(cmd)
+
 	if enrollServer == "" {
 		if !interactiveTTY() {
 			return fmt.Errorf("--server is required (e.g. https://192.168.68.100)")
@@ -131,6 +135,51 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("enroll complete.")
 	return nil
+}
+
+// applyEnrollEnvDefaults applies PMOX_ENROLL_* environment variables to any flag
+// the user did not pass explicitly, so the same command works unattended from a
+// systemd EnvironmentFile (/etc/pmox/enroll.env) while a flag still wins when set.
+func applyEnrollEnvDefaults(cmd *cobra.Command) {
+	f := cmd.Flags()
+	setStr := func(name string, dst *string) {
+		if f.Changed(name) {
+			return
+		}
+		if v, ok := os.LookupEnv("PMOX_ENROLL_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))); ok {
+			*dst = v
+		}
+	}
+	setBool := func(name string, dst *bool) {
+		if f.Changed(name) {
+			return
+		}
+		if v, ok := os.LookupEnv("PMOX_ENROLL_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))); ok {
+			switch strings.ToLower(strings.TrimSpace(v)) {
+			case "1", "true", "yes", "on":
+				*dst = true
+			}
+		}
+	}
+	setStr("server", &enrollServer)
+	setStr("account-key", &enrollKeyPath)
+	setStr("serverid", &enrollServerID)
+	setStr("level", &enrollLevel)
+	setStr("sockets", &enrollSockets)
+	setStr("contact", &enrollContact)
+	setStr("ip", &enrollIP)
+	setBool("no-set", &enrollNoSet)
+	setBool("no-redirect", &enrollNoRedirect)
+	if !f.Changed("products") {
+		if v, ok := os.LookupEnv("PMOX_ENROLL_PRODUCTS"); ok && strings.TrimSpace(v) != "" {
+			enrollProducts = nil
+			for _, code := range strings.Split(v, ",") {
+				if code = strings.TrimSpace(code); code != "" {
+					enrollProducts = append(enrollProducts, code)
+				}
+			}
+		}
+	}
 }
 
 // resolveEnrollProducts maps the --products override to Product entries, or

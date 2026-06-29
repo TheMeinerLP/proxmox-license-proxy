@@ -1,0 +1,25 @@
+[Unit]
+Description=Proxmox License Proxy - enroll/renew this host's subscription
+Documentation=https://github.com/TheMeinerLP/proxmox-license-proxy
+After=network-online.target
+Wants=network-online.target
+# Only run when configured: enroll.env must exist and set PMOX_ENROLL_SERVER.
+ConditionPathExists=/etc/pmox/enroll.env
+
+[Service]
+Type=oneshot
+# Runs on the Proxmox host as root: it sets the subscription key with the
+# product's own tool (pvesubscription / proxmox-backup-manager / pmgsubscription),
+# trusts the proxy CA and points shop.proxmox.com at the proxy in /etc/hosts.
+User=root
+# Server URL and options come from the env file (PMOX_ENROLL_SERVER, _LEVEL, ...).
+EnvironmentFile=/etc/pmox/enroll.env
+ExecStart=/usr/bin/proxmox-license-proxy client enroll
+# enroll is idempotent: the server de-duplicates by account+product and re-setting
+# an unchanged key is a no-op, so a periodic run safely picks up a just-approved
+# account, a re-issued key or a cleared key.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
