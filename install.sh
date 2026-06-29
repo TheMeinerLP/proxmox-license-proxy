@@ -1,15 +1,32 @@
 #!/bin/sh
-# proxmox-license-proxy installer - detects CPU arch + package format and
-# installs the matching .deb / .rpm / .apk from the latest GitHub release.
+# proxmox-license-proxy installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/master/install.sh | sh
-#   VERSION=0.2.0 sh install.sh        # pin a specific version
+# Default: detect CPU arch + package format and install the matching
+# .deb / .rpm / .apk from the latest GitHub release (ships the systemd service).
 #
+#   curl -fsSL https://raw.githubusercontent.com/TheMeinerLP/proxmox-license-proxy/main/install.sh | sh
+#
+# CLI-only: install just the binary + shell completions from the release
+# tarball, with NO systemd service and NO config (for running the CLI / `serve`
+# by hand, e.g. on a single host):
+#
+#   curl -fsSL .../install.sh | PMOX_CLI_ONLY=1 sh
+#   curl -fsSL .../install.sh | sh -s -- --cli-only
+#
+# Pin a version with VERSION=x.y.z. Override the CLI-only binary dir with BINDIR.
 # For private / internal lab use only - see the README warning.
 set -eu
 
 REPO="TheMeinerLP/proxmox-license-proxy"
 BIN="proxmox-license-proxy"
+CLI_ONLY="${PMOX_CLI_ONLY:-0}"
+BINDIR="${BINDIR:-/usr/local/bin}"
+
+for arg in "$@"; do
+	case "$arg" in
+	--cli-only) CLI_ONLY=1 ;;
+	esac
+done
 
 info() { echo ">> $*"; }
 err() {
@@ -50,15 +67,17 @@ aarch64 | arm64) ARCH=arm64 ;;
 *) err "unsupported architecture: $(uname -m) (only amd64 and arm64 are built)" ;;
 esac
 
-# --- detect package format from available tooling -------------------------
-if command -v apt-get >/dev/null 2>&1 || command -v dpkg >/dev/null 2>&1; then
-	FMT=deb
-elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v rpm >/dev/null 2>&1; then
-	FMT=rpm
-elif command -v apk >/dev/null 2>&1; then
-	FMT=apk
-else
-	err "no supported package manager found (need apt/dpkg, dnf/yum/rpm, or apk)"
+# --- detect package format from available tooling (package mode only) -----
+if [ "$CLI_ONLY" -ne 1 ]; then
+	if command -v apt-get >/dev/null 2>&1 || command -v dpkg >/dev/null 2>&1; then
+		FMT=deb
+	elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v rpm >/dev/null 2>&1; then
+		FMT=rpm
+	elif command -v apk >/dev/null 2>&1; then
+		FMT=apk
+	else
+		err "no supported package manager found; retry with --cli-only to install just the binary"
+	fi
 fi
 
 # --- resolve version (latest unless VERSION is set) -----------------------
@@ -79,17 +98,48 @@ else
 	TAG="v${VERSION}"
 fi
 
-FILE="${BIN}_${VERSION}_linux_${ARCH}.${FMT}"
-URL="https://github.com/$REPO/releases/download/${TAG}/${FILE}"
-
-# --- download -------------------------------------------------------------
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT INT TERM
+
+# --- CLI-only: binary + completions from the tarball, no service ----------
+if [ "$CLI_ONLY" -eq 1 ]; then
+	FILE="${BIN}_${VERSION}_linux_${ARCH}.tar.gz"
+	URL="https://github.com/$REPO/releases/download/${TAG}/${FILE}"
+	info "downloading ${FILE} (${TAG})"
+	download "$URL" "$TMP/$FILE" || err "download failed: $URL"
+	tar -xzf "$TMP/$FILE" -C "$TMP" || err "could not extract $FILE"
+
+	info "installing binary to ${BINDIR}/${BIN}"
+	$SUDO install -d "$BINDIR"
+	$SUDO install -m 0755 "$TMP/$BIN" "$BINDIR/$BIN"
+
+	# Shell completions, each into its system dir if that dir exists.
+	install_comp() { # install_comp <src> <dst>
+		[ -f "$1" ] || return 0
+		dst_dir=$(dirname "$2")
+		[ -d "$dst_dir" ] || return 0
+		$SUDO install -m 0644 "$1" "$2" && info "completion: $2"
+	}
+	install_comp "$TMP/completions/${BIN}.bash" "/usr/share/bash-completion/completions/${BIN}"
+	install_comp "$TMP/completions/${BIN}.zsh" "/usr/share/zsh/vendor-completions/_${BIN}"
+	install_comp "$TMP/completions/${BIN}.fish" "/usr/share/fish/vendor_completions.d/${BIN}.fish"
+
+	info "installed: $("$BINDIR/$BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
+	echo
+	info "next steps (no service installed):"
+	echo "   1. generate a lab key:  ${BIN} license generate"
+	echo "   2. run the server:      ${BIN} serve --config your-config.yaml"
+	echo "      (scaffold one with:  ${BIN} setup server)"
+	exit 0
+fi
+
+# --- package install (deb/rpm/apk), ships the systemd service -------------
+FILE="${BIN}_${VERSION}_linux_${ARCH}.${FMT}"
+URL="https://github.com/$REPO/releases/download/${TAG}/${FILE}"
 
 info "downloading ${FILE} (${TAG})"
 download "$URL" "$TMP/$FILE" || err "download failed: $URL"
 
-# --- install --------------------------------------------------------------
 info "installing via ${FMT}"
 case "$FMT" in
 deb)
@@ -116,6 +166,10 @@ esac
 info "installed: $("$BIN" version 2>/dev/null | head -1 || echo "$BIN $VERSION")"
 echo
 info "next steps:"
-echo "   1. review the config:  ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
-echo "   2. start the service:  ${SUDO:+$SUDO }systemctl start ${BIN}"
-echo "   3. add a license:      ${BIN} license add pbsc-1234567890"
+echo "   1. review the config:   ${SUDO:+$SUDO }\$EDITOR /etc/pmox/config.yaml"
+echo "   2. start the service:   ${SUDO:+$SUDO }systemctl start ${BIN}"
+echo "   3. generate a lab key:  ${BIN} license generate"
+echo
+echo "   the package installs ${BIN} to /usr/bin. if an older 'client install'"
+echo "   left a copy in /usr/local/bin, remove it (or run 'hash -r') so the right"
+echo "   binary is used."
