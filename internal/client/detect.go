@@ -32,6 +32,16 @@ func DetectProducts() []Product {
 	return detectProducts(exec.LookPath, dirExists)
 }
 
+// AllProducts returns every supported product (regardless of detection), so a
+// caller can map a --products override onto its set command.
+func AllProducts() []Product {
+	out := make([]Product, len(knownProducts))
+	for i, p := range knownProducts {
+		out[i] = Product{Code: p.Code, Name: p.Name, SetCommand: p.Set}
+	}
+	return out
+}
+
 // detectProducts is the injectable core, so detection is unit-testable without a
 // real Proxmox install.
 func detectProducts(look func(string) (string, error), dir func(string) bool) []Product {
