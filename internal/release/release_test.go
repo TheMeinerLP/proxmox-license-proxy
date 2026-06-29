@@ -17,12 +17,13 @@ func TestIsNewer(t *testing.T) {
 		{"v1.2.0", "1.2.1", true},
 		{"1.2.0", "1.2.0", false},
 		{"1.3.0", "1.2.9", false},
-		{"1.2.0", "1.10.0", true},   // numeric, not lexical
-		{"dev", "v1.0.0", true},     // unknown local build -> any release is newer
-		{"", "v1.0.0", true},        // empty -> treat as outdated
-		{"1.2.0", "garbage", false}, // unparseable release -> cannot tell
-		{"1.2.0-rc1", "1.2.0", false},
-		{"1.2.0", "1.2.1-rc1", true}, // suffix ignored, patch still newer
+		{"1.2.0", "1.10.0", true},    // numeric, not lexical
+		{"dev", "v1.0.0", true},      // unknown local build -> any release is newer
+		{"", "v1.0.0", true},         // empty -> treat as outdated
+		{"1.2.0", "garbage", false},  // unparseable release -> cannot tell
+		{"1.2.0-rc1", "1.2.0", true}, // a pre-release is older than its final
+		{"1.2.0", "1.2.0-rc1", false},
+		{"1.2.0", "1.2.1-rc1", true}, // newer patch, even as a pre-release
 	}
 	for _, c := range cases {
 		if got := IsNewer(c.current, c.latest); got != c.want {

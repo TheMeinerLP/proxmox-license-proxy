@@ -42,8 +42,7 @@ func selectHosts(exclude subscription.Status, verb string, multi bool) ([]string
 			Title("Select hosts to " + verb).Options(opts...).Value(&sel))).Run()
 	} else {
 		var one string
-		err = huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
-			Title("Select a host to " + verb).Options(opts...).Value(&one))).Run()
+		err = promptSelect("Select a host to "+verb, &one, opts...)
 		if one != "" {
 			sel = []string{one}
 		}

@@ -3,6 +3,7 @@ package config
 import (
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 )
 
 // This file holds the DOMAIN model of the application configuration.
@@ -38,6 +39,15 @@ type Settings struct {
 	Hosts       HostsSettings
 	Offline     OfflineSettings
 	AutoApprove AutoApproveSettings
+}
+
+// AutoCertPaths returns where the `auto` TLS mode persists its self-signed
+// certificate and key: alongside the registry file, so they share the same
+// state directory and survive restarts/upgrades. Centralised here so the server
+// (setupTLS) and `doctor` always agree on the location.
+func (s *Settings) AutoCertPaths() (certPath, keyPath string) {
+	dir := filepath.Dir(s.RegistryFile)
+	return filepath.Join(dir, "tls-auto.crt"), filepath.Join(dir, "tls-auto.key")
 }
 
 // AutoApproveSettings decides whether a host contacting from a given address is

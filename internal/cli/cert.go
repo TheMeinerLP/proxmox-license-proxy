@@ -86,25 +86,18 @@ var certInstallCmd = &cobra.Command{
 		// running proxy or read a local file - the two real options.
 		if interactiveTTY() && certFrom == "" && !cmd.Flags().Changed("cert") {
 			source := "url"
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Title("Where is the certificate?").
-					Options(
-						huh.NewOption("Fetch from the proxy's /ca.crt URL", "url"),
-						huh.NewOption("Read a local PEM file", "file"),
-					).Value(&source),
-			)).Run(); err != nil {
+			if err := promptSelect("Where is the certificate?", &source,
+				huh.NewOption("Fetch from the proxy's /ca.crt URL", "url"),
+				huh.NewOption("Read a local PEM file", "file"),
+			); err != nil {
 				return err
 			}
 			if source == "url" {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Proxy URL").Placeholder("https://192.168.68.100/ca.crt").Value(&certFrom),
-				)).Run(); err != nil {
+				if err := promptInput("Proxy URL", "https://192.168.68.100/ca.crt", &certFrom); err != nil {
 					return err
 				}
 			} else {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Certificate file").Placeholder("cert.pem").Value(&certInstall),
-				)).Run(); err != nil {
+				if err := promptInput("Certificate file", "cert.pem", &certInstall); err != nil {
 					return err
 				}
 			}

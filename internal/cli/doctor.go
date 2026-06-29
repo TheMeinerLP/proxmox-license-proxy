@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -147,7 +146,7 @@ func checkTLSCert() check {
 	case config.TLSModeFiles:
 		return inspectCertFile("TLS certificate", settings.TLS.Cert)
 	default: // auto
-		certPath := filepath.Join(filepath.Dir(settings.RegistryFile), "tls-auto.crt")
+		certPath, _ := settings.AutoCertPaths()
 		return inspectCertFile("TLS certificate (auto)", certPath)
 	}
 }

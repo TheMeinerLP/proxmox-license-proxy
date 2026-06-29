@@ -9,9 +9,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 // DefaultAPI is the GitHub "latest release" endpoint for this project.
@@ -68,55 +69,32 @@ func (c *Checker) Latest(ctx context.Context) (Info, error) {
 	return Info{Tag: body.TagName, URL: body.HTMLURL}, nil
 }
 
-// IsNewer reports whether latest is a strictly newer release than current.
-// Both may carry a leading "v" and a pre-release/build suffix (ignored). A
-// current version that is not a real release (e.g. "dev", "") is treated as
-// older than any release, so an update is suggested.
+// IsNewer reports whether latest is a strictly newer release than current,
+// using full semver ordering (so 1.10.0 > 1.2.0 and 1.2.0 > 1.2.0-rc1). Both
+// may carry a leading "v". A current version that is not valid semver (e.g.
+// "dev", "") is treated as older than any release, so an update is suggested;
+// an unparseable release tag yields false (cannot tell).
 func IsNewer(current, latest string) bool {
-	lat, okLatest := parseSemver(latest)
-	if !okLatest {
-		return false // cannot compare against an unparseable release tag
+	lat := normalize(latest)
+	if !semver.IsValid(lat) {
+		return false
 	}
-	cur, okCurrent := parseSemver(current)
-	if !okCurrent {
+	cur := normalize(current)
+	if !semver.IsValid(cur) {
 		return true // dev/unknown local build -> any real release is "newer"
 	}
-	return compare(lat, cur) > 0
+	return semver.Compare(lat, cur) > 0
 }
 
-// parseSemver extracts major.minor.patch from a version string, ignoring a
-// leading "v" and any "-pre"/"+build" suffix. Missing components default to 0.
-func parseSemver(v string) ([3]int, bool) {
-	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
-	if i := strings.IndexAny(v, "-+"); i >= 0 {
-		v = v[:i]
-	}
+// normalize makes a version string acceptable to the semver package, which
+// requires a leading "v". Empty/whitespace stays empty (and so invalid).
+func normalize(v string) string {
+	v = strings.TrimSpace(v)
 	if v == "" {
-		return [3]int{}, false
+		return ""
 	}
-	parts := strings.Split(v, ".")
-	if len(parts) > 3 {
-		return [3]int{}, false
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
 	}
-	var out [3]int
-	for i, p := range parts {
-		n, err := strconv.Atoi(p)
-		if err != nil || n < 0 {
-			return [3]int{}, false
-		}
-		out[i] = n
-	}
-	return out, true
-}
-
-func compare(a, b [3]int) int {
-	for i := range a {
-		switch {
-		case a[i] > b[i]:
-			return 1
-		case a[i] < b[i]:
-			return -1
-		}
-	}
-	return 0
+	return v
 }

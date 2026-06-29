@@ -15,7 +15,6 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -63,9 +62,7 @@ func (s *Server) setupTLS() error {
 		// Persist the self-signed cert next to the registry so it survives
 		// restarts and upgrades; otherwise every restart would mint a new cert
 		// and break hosts that already trust the old one.
-		dir := filepath.Dir(s.settings.RegistryFile)
-		certPath := filepath.Join(dir, "tls-auto.crt")
-		keyPath := filepath.Join(dir, "tls-auto.key")
+		certPath, keyPath := s.settings.AutoCertPaths()
 		cert, key, ok := certs.LoadKeyPairIfValid(certPath, keyPath, s.settings.TLS.Names)
 		if ok {
 			s.log.Info("reusing persisted auto TLS certificate", "cert", certPath)

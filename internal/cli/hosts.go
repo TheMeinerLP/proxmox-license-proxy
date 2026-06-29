@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/hosts"
@@ -41,10 +40,7 @@ var hostsEnableCmd = &cobra.Command{
 		// Ask for the proxy IP when it is not configured and we can prompt, so
 		// the command does not silently fall back to an unexpected default.
 		if ip == "" && interactiveTTY() {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Proxy IP to point " + hostsNamesLabel() + " at").
-					Placeholder("e.g. 192.168.68.100").Value(&ip),
-			)).Run(); err != nil {
+			if err := promptInput("Proxy IP to point "+hostsNamesLabel()+" at", "e.g. 192.168.68.100", &ip); err != nil {
 				return err
 			}
 		}

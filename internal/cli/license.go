@@ -83,8 +83,7 @@ func selectLicenseKey(verb string) (string, error) {
 		opts[i] = huh.NewOption(label, l.Key)
 	}
 	var key string
-	err = huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
-		Title("Select a subscription to " + verb).Options(opts...).Value(&key))).Run()
+	err = promptSelect("Select a subscription to "+verb, &key, opts...)
 	return key, err
 }
 
@@ -116,10 +115,7 @@ var licenseAddCmd = &cobra.Command{
 			key = args[0]
 		} else if interactiveTTY() {
 			fmt.Println("Tip: to mint a brand-new lab key instead, run `subscription generate`.")
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Subscription key to add").
-					Placeholder("e.g. pbsc-1ab879865b").Value(&key),
-			)).Run(); err != nil {
+			if err := promptInput("Subscription key to add", "e.g. pbsc-1ab879865b", &key); err != nil {
 				return err
 			}
 		}
@@ -353,13 +349,11 @@ var licenseSetDueCmd = &cobra.Command{
 		}
 		due := licenseSetDue
 		if due == "" && interactiveTTY() {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("New expiry date (YYYY-MM-DD)").Value(&due).
-					Validate(func(s string) error {
-						_, perr := time.Parse("2006-01-02", s)
-						return perr
-					}),
-			)).Run(); err != nil {
+			if err := promptInputValidated("New expiry date (YYYY-MM-DD)", &due,
+				func(s string) error {
+					_, perr := time.Parse("2006-01-02", s)
+					return perr
+				}); err != nil {
 				return err
 			}
 		}
