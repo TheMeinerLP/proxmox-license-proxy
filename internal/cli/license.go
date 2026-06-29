@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"proxmox-license-proxy/internal/app"
@@ -89,11 +90,15 @@ var licenseGenerateCmd = &cobra.Command{
 		"with the proxmox-license-proxy origin, so its lab status shows in the Proxmox UI.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprint(cmd.OutOrStdout(), labLicenseBanner)
+		product, level, err := resolveGenChoices(cmd)
+		if err != nil {
+			return err
+		}
 		if err := confirm(cmd, licenseGenYes,
 			"I understand this key is LAB-ONLY and must never be used in production. Continue?"); err != nil {
 			return err
 		}
-		lic, err := app.New(store()).GenerateLicense(licenseGenProduct, licenseGenLevel, true)
+		lic, err := app.New(store()).GenerateLicense(product, level, true)
 		if err != nil {
 			return err
 		}
@@ -105,6 +110,67 @@ var licenseGenerateCmd = &cobra.Command{
 		fmt.Println("  Lab use only - never point a production Proxmox host at this proxy.")
 		return nil
 	},
+}
+
+// genProducts and genLevels are the selectable options, with the labels shown
+// in the interactive picker. Order is the menu order.
+var (
+	genProducts = []struct{ code, label string }{
+		{"pve", "Proxmox VE"},
+		{"pbs", "Proxmox Backup Server"},
+		{"pmg", "Proxmox Mail Gateway"},
+	}
+	genLevels = []struct{ code, label string }{
+		{"c", "Community"},
+		{"b", "Basic"},
+		{"s", "Standard"},
+		{"p", "Premium"},
+	}
+)
+
+// resolveGenChoices decides the product and level for `license generate`.
+// An explicit --product / --level flag always wins. Otherwise, on an interactive
+// terminal, the user picks both from a single form (same style as `setup`);
+// non-interactively it falls back to the documented defaults (pve / community)
+// so scripts keep working.
+func resolveGenChoices(cmd *cobra.Command) (product, level string, err error) {
+	product, level = licenseGenProduct, licenseGenLevel
+	pickProduct := !cmd.Flags().Changed("product")
+	pickLevel := !cmd.Flags().Changed("level")
+
+	if (pickProduct || pickLevel) && interactiveTTY() {
+		fields := make([]huh.Field, 0, 2)
+		if pickProduct {
+			opts := make([]huh.Option[string], len(genProducts))
+			for i, p := range genProducts {
+				opts[i] = huh.NewOption(fmt.Sprintf("%s (%s)", p.label, p.code), p.code)
+			}
+			product = genProducts[0].code
+			fields = append(fields, huh.NewSelect[string]().
+				Title("Which product is this lab key for?").Options(opts...).Value(&product))
+		}
+		if pickLevel {
+			opts := make([]huh.Option[string], len(genLevels))
+			for i, l := range genLevels {
+				opts[i] = huh.NewOption(fmt.Sprintf("%s (%s)", l.label, l.code), l.code)
+			}
+			level = genLevels[0].code
+			fields = append(fields, huh.NewSelect[string]().
+				Title("Subscription level?").Options(opts...).Value(&level))
+		}
+		if err = huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+			return "", "", err
+		}
+	}
+
+	// Non-interactive (or only one side prompted): apply documented defaults.
+	if product == "" {
+		product = genProducts[0].code
+	}
+	if level == "" {
+		level = genLevels[0].code
+	}
+	return product, level, nil
 }
 
 var licenseListCmd = &cobra.Command{
@@ -279,8 +345,8 @@ func init() {
 
 	licenseRemoveCmd.Flags().BoolVarP(&licenseRemoveYes, "yes", "y", false, "skip confirmation prompt")
 
-	licenseGenerateCmd.Flags().StringVar(&licenseGenProduct, "product", "pve", "product: pve | pbs | pmg")
-	licenseGenerateCmd.Flags().StringVar(&licenseGenLevel, "level", "c", "level: c (community) | b (basic) | s (standard) | p (premium)")
+	licenseGenerateCmd.Flags().StringVar(&licenseGenProduct, "product", "", "product: pve | pbs | pmg (prompts when omitted on a terminal, else pve)")
+	licenseGenerateCmd.Flags().StringVar(&licenseGenLevel, "level", "", "level: c | b | s | p (prompts when omitted on a terminal, else c)")
 	licenseGenerateCmd.Flags().BoolVarP(&licenseGenYes, "yes", "y", false, "skip the lab-only confirmation")
 	_ = licenseGenerateCmd.RegisterFlagCompletionFunc("product",
 		cobra.FixedCompletions([]string{"pve", "pbs", "pmg"}, cobra.ShellCompDirectiveNoFileComp))
