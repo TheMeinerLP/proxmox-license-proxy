@@ -21,6 +21,7 @@ linters:
         - G301 # 0755 dirs are intentional (config/data directories)
         - G306 # 0640/0644 files are intentional (group-readable config/registry)
         - G304 # file paths come from trusted config (hosts file, registry path)
+        - G703 # path traversal: destinations come from trusted config/flags
     errcheck:
       exclude-functions:
         - fmt.Fprint # writes to stdout / tabwriter; the error is not actionable
