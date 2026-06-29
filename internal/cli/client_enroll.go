@@ -44,20 +44,8 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 	// systemd renew timer can be driven entirely by /etc/pmox/enroll.env.
 	applyEnrollEnvDefaults(cmd)
 
-	if enrollServer == "" {
-		if !interactiveTTY() {
-			return fmt.Errorf("--server is required (e.g. https://192.168.68.100)")
-		}
-		if err := promptInput("Proxy server URL", "https://192.168.68.100", &enrollServer); err != nil {
-			return err
-		}
-	}
-	enrollServer = strings.TrimRight(strings.TrimSpace(enrollServer), "/")
-	// Require a scheme: without it certs.Download fails deep inside with a cryptic
-	// `unsupported protocol scheme ""` against "/ca.crt". Catch an empty or
-	// scheme-less answer here with an actionable message.
-	if !strings.HasPrefix(enrollServer, "http://") && !strings.HasPrefix(enrollServer, "https://") {
-		return fmt.Errorf("server URL must start with http:// or https:// (e.g. https://192.168.68.100); got %q", enrollServer)
+	if err := resolveEnrollServer(cmd); err != nil {
+		return err
 	}
 
 	// Trust the proxy CA (trust-on-first-use): download it, show the fingerprint
@@ -140,6 +128,46 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 		fmt.Printf("still pending (account not approved for): %s\n", strings.Join(order.Pending, ", "))
 	}
 	fmt.Println("enroll complete.")
+	return nil
+}
+
+// resolveEnrollServer fills enrollServer when no --server/PMOX_ENROLL_SERVER was
+// given, so a re-enrol does not re-ask. It reuses the proxy this host was already
+// pointed at (the managed /etc/hosts redirect that `client install`/`enroll`
+// wrote); if none exists it runs the install flow once (discovery + trust +
+// redirect) and adopts that server. Finally it validates the scheme.
+func resolveEnrollServer(cmd *cobra.Command) error {
+	if enrollServer == "" {
+		// Reuse the saved proxy (the /etc/hosts redirect is the client's record
+		// of which server it uses).
+		if ip, err := hosts.RedirectIP(resolveHostsFile()); err == nil && ip != "" {
+			enrollServer = "https://" + ip
+			fmt.Printf("using saved proxy %s (from %s)\n", enrollServer, resolveHostsFile())
+		}
+	}
+	if enrollServer == "" {
+		// Never set up: run the install flow, then adopt the server it configured.
+		if !interactiveTTY() {
+			return fmt.Errorf("no proxy configured; run `proxmox-license-proxy client install` first or pass --server")
+		}
+		fmt.Println("no proxy configured yet - starting client install...")
+		// We are already running from an installed binary, so don't lay down a
+		// second copy (a /usr/local/bin shadow is the classic footgun).
+		clientNoBinary = true
+		if err := runClientInstall(cmd, nil); err != nil {
+			return err
+		}
+		if ip, err := hosts.RedirectIP(resolveHostsFile()); err == nil && ip != "" {
+			enrollServer = "https://" + ip
+		}
+	}
+
+	enrollServer = strings.TrimRight(strings.TrimSpace(enrollServer), "/")
+	// Require a scheme: without it certs.Download fails deep inside with a cryptic
+	// `unsupported protocol scheme ""` against "/ca.crt".
+	if !strings.HasPrefix(enrollServer, "http://") && !strings.HasPrefix(enrollServer, "https://") {
+		return fmt.Errorf("server URL must start with http:// or https:// (e.g. https://192.168.68.100); got %q", enrollServer)
+	}
 	return nil
 }
 

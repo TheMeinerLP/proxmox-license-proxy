@@ -2,12 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -25,15 +23,14 @@ import (
 const defaultInstallDest = "/usr/local/bin/proxmox-license-proxy"
 
 var (
-	clientDest         string
-	clientServerURL    string
-	clientHostsIP      string
-	clientFrom         string
-	clientNoCert       bool
-	clientNoHosts      bool
-	clientNoCompletion bool
-	clientNoBinary     bool
-	clientYes          bool
+	clientDest      string
+	clientServerURL string
+	clientHostsIP   string
+	clientFrom      string
+	clientNoCert    bool
+	clientNoHosts   bool
+	clientNoBinary  bool
+	clientYes       bool
 )
 
 var clientCmd = &cobra.Command{
@@ -46,10 +43,12 @@ var clientCmd = &cobra.Command{
 
 var clientInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install/update the binary and prepare this host (cert, /etc/hosts, completion)",
+	Short: "Install/update the binary and prepare this host (cert, /etc/hosts)",
 	Long: `Installs or updates this binary into a system path and prepares the Proxmox
-host to use the subscription proxy: trusts the server certificate, redirects
-shop.proxmox.com via /etc/hosts and installs shell completion.
+host to use the subscription proxy: trusts the server certificate and redirects
+shop.proxmox.com via /etc/hosts.
+
+Shell completion is shipped by the OS package (deb/rpm/apk), not installed here.
 
 Interactive by default (asks where the server is). Pass --yes for an
 unattended run driven entirely by flags.`,
@@ -63,7 +62,6 @@ func runClientInstall(cmd *cobra.Command, args []string) error {
 		hostsIP:       clientHostsIP,
 		trustCert:     !clientNoCert,
 		editHosts:     !clientNoHosts,
-		addCompletion: !clientNoCompletion,
 		installBinary: !clientNoBinary,
 	}
 
@@ -84,7 +82,6 @@ type installChoices struct {
 	hostsIP       string
 	trustCert     bool
 	editHosts     bool
-	addCompletion bool
 	installBinary bool
 }
 
@@ -105,7 +102,6 @@ func (o *installChoices) ask() error {
 			huh.NewConfirm().Title("Trust the server's certificate?").Value(&o.trustCert),
 			huh.NewConfirm().Title("Redirect shop.proxmox.com via /etc/hosts?").Value(&o.editHosts),
 			huh.NewInput().Title("Proxy IP for /etc/hosts").Value(&o.hostsIP),
-			huh.NewConfirm().Title("Install shell completion?").Value(&o.addCompletion),
 		),
 	)
 	return form.Run()
@@ -189,16 +185,7 @@ func (o *installChoices) run() error {
 		summary = append(summary, fmt.Sprintf("binary %s at %s", res.Action, res.Path))
 	}
 
-	// 2) shell completion (best-effort, non-fatal)
-	if o.addCompletion {
-		if path, err := installShellCompletion(detectShell()); err != nil {
-			summary = append(summary, "completion skipped ("+err.Error()+")")
-		} else {
-			summary = append(summary, "completion installed at "+path)
-		}
-	}
-
-	// 3) trust the server certificate
+	// 2) trust the server certificate
 	if o.trustCert {
 		if o.serverURL == "" {
 			return fmt.Errorf("a server URL is required to trust the certificate (use --server or --no-cert)")
@@ -219,7 +206,7 @@ func (o *installChoices) run() error {
 		summary = append(summary, "certificate trusted at "+dst)
 	}
 
-	// 4) /etc/hosts redirect
+	// 3) /etc/hosts redirect
 	if o.editHosts {
 		ip := o.hostsIP
 		if ip == "" {
@@ -256,67 +243,6 @@ func hostFromURL(raw string) string {
 	return u.Hostname()
 }
 
-func detectShell() string {
-	switch sh := filepath.Base(os.Getenv("SHELL")); sh {
-	case "bash", "zsh", "fish":
-		return sh
-	default:
-		return "bash"
-	}
-}
-
-// completionPath returns the standard completion file location and a generator
-// for the given shell. Shared by install and uninstall so the path can never
-// drift between the two.
-func completionPath(shell string) (string, func(*os.File) error) {
-	switch shell {
-	case "zsh":
-		return "/usr/share/zsh/site-functions/_proxmox-license-proxy",
-			func(f *os.File) error { return rootCmd.GenZshCompletion(f) }
-	case "fish":
-		return os.ExpandEnv("$HOME/.config/fish/completions/proxmox-license-proxy.fish"),
-			func(f *os.File) error { return rootCmd.GenFishCompletion(f, true) }
-	default: // bash
-		return "/etc/bash_completion.d/proxmox-license-proxy",
-			func(f *os.File) error { return rootCmd.GenBashCompletionV2(f, true) }
-	}
-}
-
-// installShellCompletion writes the completion script for the given shell.
-func installShellCompletion(shell string) (string, error) {
-	path, gen := completionPath(shell)
-	if dir := filepath.Dir(path); dir != "" {
-		//nolint:gosec // G301: completion dirs (/usr/share/...) are world-readable (0755) by design
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", err
-		}
-	}
-	// filepath.Clean satisfies gosec G304; the path is a known completion
-	// location derived from the shell flag.
-	f, err := os.Create(filepath.Clean(path))
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }()
-	if err := gen(f); err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
-// removeShellCompletion deletes the completion file. The bool reports whether it
-// existed.
-func removeShellCompletion(shell string) (string, bool, error) {
-	path, _ := completionPath(shell)
-	if err := os.Remove(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return path, false, nil
-		}
-		return path, false, err
-	}
-	return path, true, nil
-}
-
 var clientDiscoverTimeout time.Duration
 
 var clientDiscoverCmd = &cobra.Command{
@@ -345,17 +271,16 @@ var clientDiscoverCmd = &cobra.Command{
 }
 
 var (
-	uninstallDest         string
-	uninstallNoBinary     bool
-	uninstallNoCert       bool
-	uninstallNoHosts      bool
-	uninstallNoCompletion bool
-	uninstallYes          bool
+	uninstallDest     string
+	uninstallNoBinary bool
+	uninstallNoCert   bool
+	uninstallNoHosts  bool
+	uninstallYes      bool
 )
 
 var clientUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Roll back everything client install did (binary, cert, hosts, completion)",
+	Short: "Roll back everything client install did (binary, cert, hosts)",
 	RunE:  runClientUninstall,
 }
 
@@ -364,7 +289,6 @@ func runClientUninstall(cmd *cobra.Command, args []string) error {
 	removeBinary := !uninstallNoBinary
 	removeCert := !uninstallNoCert
 	disableHosts := !uninstallNoHosts
-	removeCompletion := !uninstallNoCompletion
 
 	if !uninstallYes {
 		form := huh.NewForm(
@@ -372,7 +296,6 @@ func runClientUninstall(cmd *cobra.Command, args []string) error {
 				huh.NewConfirm().Title("Remove the installed binary at "+dest+"?").Value(&removeBinary),
 				huh.NewConfirm().Title("Remove the trusted certificate?").Value(&removeCert),
 				huh.NewConfirm().Title("Remove the /etc/hosts redirect?").Value(&disableHosts),
-				huh.NewConfirm().Title("Remove shell completion?").Value(&removeCompletion),
 			),
 		)
 		if err := form.Run(); err != nil {
@@ -381,18 +304,6 @@ func runClientUninstall(cmd *cobra.Command, args []string) error {
 	}
 
 	var summary []string
-
-	if removeCompletion {
-		path, existed, err := removeShellCompletion(detectShell())
-		switch {
-		case err != nil:
-			summary = append(summary, "completion skipped ("+err.Error()+")")
-		case existed:
-			summary = append(summary, "completion removed from "+path)
-		default:
-			summary = append(summary, "completion not present")
-		}
-	}
 
 	if removeCert {
 		existed, err := certs.RemoveTrust("/usr/local/share/ca-certificates/pmox.crt")
@@ -444,7 +355,6 @@ func init() {
 	u.BoolVar(&uninstallNoBinary, "no-binary", false, "keep the installed binary")
 	u.BoolVar(&uninstallNoCert, "no-cert", false, "keep the trusted certificate")
 	u.BoolVar(&uninstallNoHosts, "no-hosts", false, "keep the /etc/hosts redirect")
-	u.BoolVar(&uninstallNoCompletion, "no-completion", false, "keep shell completion")
 	u.BoolVar(&uninstallYes, "yes", false, "non-interactive: use flags/defaults, no prompts")
 
 	f := clientInstallCmd.Flags()
@@ -454,7 +364,6 @@ func init() {
 	f.StringVar(&clientFrom, "from", "", "download the binary from this URL instead of installing the current one")
 	f.BoolVar(&clientNoCert, "no-cert", false, "skip trusting the server certificate")
 	f.BoolVar(&clientNoHosts, "no-hosts", false, "skip editing /etc/hosts")
-	f.BoolVar(&clientNoCompletion, "no-completion", false, "skip installing shell completion")
 	f.BoolVar(&clientNoBinary, "no-binary", false, "skip installing the binary (use on the host that already runs the proxy from the package)")
 	f.BoolVar(&clientYes, "yes", false, "non-interactive: use flags/defaults, no prompts")
 }
