@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -53,6 +54,14 @@ var serveCmd = &cobra.Command{
 		} else if len(migrated) > 0 {
 			log.Info("migrated pre-2.0 registry to new location",
 				"from", registry.LegacyRegistryPath, "to", settings.RegistryFile, "files", migrated)
+		}
+
+		// Fail fast with an actionable message if the registry directory is not
+		// writable. The classic case is a pre-2.0 config still pointing at
+		// /var/lib/pmox, which the hardened unit (ReadWritePaths=/etc/pmox) mounts
+		// read-only - otherwise this surfaces later as a cryptic flock error.
+		if err := checkRegistryWritable(settings.RegistryFile); err != nil {
+			return err
 		}
 
 		store := registry.NewStore(settings.RegistryFile)
@@ -163,6 +172,34 @@ func portFromListen(listen string) int {
 		return 443
 	}
 	return n
+}
+
+// checkRegistryWritable verifies the registry's directory can be written, so a
+// misconfigured path fails at startup with a clear hint instead of a cryptic
+// flock error on the first request. It probes by creating and removing a temp
+// file in the directory.
+func checkRegistryWritable(registryFile string) error {
+	dir := filepath.Dir(registryFile)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return registryWritableErr(dir, err)
+	}
+	probe, err := os.CreateTemp(dir, ".pmox-write-*")
+	if err != nil {
+		return registryWritableErr(dir, err)
+	}
+	name := probe.Name()
+	_ = probe.Close()
+	_ = os.Remove(name)
+	return nil
+}
+
+func registryWritableErr(dir string, err error) error {
+	hint := ""
+	if strings.HasPrefix(filepath.Clean(dir), registry.LegacyDir) {
+		hint = "\n  this is the pre-2.0 path; the packaged service only allows writing /etc/pmox" +
+			"\n  fix: set registry_file: /etc/pmox/registry.json in /etc/pmox/config.yaml and restart"
+	}
+	return fmt.Errorf("registry directory %s is not writable: %w%s", dir, err, hint)
 }
 
 func init() {

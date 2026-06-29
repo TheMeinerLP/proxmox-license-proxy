@@ -27,6 +27,14 @@ if [ -f /var/lib/pmox/registry.json ] && [ ! -f /etc/pmox/registry.json ]; then
     done
 fi
 
+# 2b) A pre-2.0 config kept on upgrade (conffile, --force-confold) may still set
+#     registry_file to the now read-only /var/lib/pmox - the hardened unit only
+#     grants ReadWritePaths=/etc/pmox, so the service would fail with "read-only
+#     file system". Repoint the known legacy default (data already moved above).
+if [ -f /etc/pmox/config.yaml ] && grep -q '/var/lib/pmox/registry.json' /etc/pmox/config.yaml; then
+    sed -i 's#/var/lib/pmox/registry.json#/etc/pmox/registry.json#g' /etc/pmox/config.yaml || true
+fi
+
 # 3) Ownership + permissions. /etc/pmox is a setgid, group-pmox directory so a
 #    root-run CLI and the pmox service can share the registry: new files inherit
 #    group pmox, and the app pins them to 0660 (group-writable). config.yaml

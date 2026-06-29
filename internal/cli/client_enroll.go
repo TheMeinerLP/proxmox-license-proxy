@@ -52,7 +52,13 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	enrollServer = strings.TrimRight(enrollServer, "/")
+	enrollServer = strings.TrimRight(strings.TrimSpace(enrollServer), "/")
+	// Require a scheme: without it certs.Download fails deep inside with a cryptic
+	// `unsupported protocol scheme ""` against "/ca.crt". Catch an empty or
+	// scheme-less answer here with an actionable message.
+	if !strings.HasPrefix(enrollServer, "http://") && !strings.HasPrefix(enrollServer, "https://") {
+		return fmt.Errorf("server URL must start with http:// or https:// (e.g. https://192.168.68.100); got %q", enrollServer)
+	}
 
 	// Trust the proxy CA (trust-on-first-use): download it, show the fingerprint
 	// and build an HTTP client that pins it. Skipped for plain http servers.
