@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -70,6 +71,49 @@ func GenerateSelfSigned(hosts []string, validFor time.Duration) (certPEM, keyPEM
 	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	return certPEM, keyPEM, nil
+}
+
+// LoadKeyPairIfValid returns the PEM cert/key at certPath/keyPath when they
+// exist, form a valid pair, are not within 24h of expiry and still cover every
+// name. ok is false (and the server should generate a fresh pair) otherwise.
+// This lets the auto TLS mode reuse one persistent certificate across restarts
+// and package upgrades, so a host that already trusts it keeps working.
+func LoadKeyPairIfValid(certPath, keyPath string, names []string) (certPEM, keyPEM []byte, ok bool) {
+	certPEM, err := os.ReadFile(filepath.Clean(certPath))
+	if err != nil {
+		return nil, nil, false
+	}
+	keyPEM, err = os.ReadFile(filepath.Clean(keyPath))
+	if err != nil {
+		return nil, nil, false
+	}
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil || len(pair.Certificate) == 0 {
+		return nil, nil, false
+	}
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil {
+		return nil, nil, false
+	}
+	now := time.Now()
+	if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter.Add(-24*time.Hour)) {
+		return nil, nil, false // expired or about to expire
+	}
+	for _, n := range names {
+		if leaf.VerifyHostname(n) != nil {
+			return nil, nil, false // configured names changed
+		}
+	}
+	return certPEM, keyPEM, true
+}
+
+// WriteKeyPair persists a cert (0644, public) and its private key (0600).
+func WriteKeyPair(certPath, keyPath string, certPEM, keyPEM []byte) error {
+	//nolint:gosec // G306: the certificate is public and meant to be world-readable
+	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
+		return err
+	}
+	return os.WriteFile(keyPath, keyPEM, 0o600)
 }
 
 // Fingerprint returns the SHA-256 fingerprint of the first certificate in the

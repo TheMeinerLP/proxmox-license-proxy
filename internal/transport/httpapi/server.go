@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -59,9 +60,27 @@ func New(settings *config.Settings, store *registry.Store, log *slog.Logger) (*S
 func (s *Server) setupTLS() error {
 	switch s.settings.TLS.Mode {
 	case config.TLSModeAuto:
-		cert, key, err := certs.GenerateSelfSigned(s.settings.TLS.Names, 10*365*24*time.Hour)
-		if err != nil {
-			return err
+		// Persist the self-signed cert next to the registry so it survives
+		// restarts and upgrades; otherwise every restart would mint a new cert
+		// and break hosts that already trust the old one.
+		dir := filepath.Dir(s.settings.RegistryFile)
+		certPath := filepath.Join(dir, "tls-auto.crt")
+		keyPath := filepath.Join(dir, "tls-auto.key")
+		cert, key, ok := certs.LoadKeyPairIfValid(certPath, keyPath, s.settings.TLS.Names)
+		if ok {
+			s.log.Info("reusing persisted auto TLS certificate", "cert", certPath)
+		} else {
+			var err error
+			cert, key, err = certs.GenerateSelfSigned(s.settings.TLS.Names, 10*365*24*time.Hour)
+			if err != nil {
+				return err
+			}
+			if werr := certs.WriteKeyPair(certPath, keyPath, cert, key); werr != nil {
+				s.log.Warn("could not persist auto TLS cert; it will change on restart", "err", werr)
+			} else {
+				s.log.Info("generated and persisted auto TLS certificate",
+					"cert", certPath, "fingerprint", certs.Fingerprint(cert))
+			}
 		}
 		s.certPEM, s.keyPEM = cert, key
 	case config.TLSModeFiles:

@@ -32,6 +32,7 @@ var (
 	clientNoCert       bool
 	clientNoHosts      bool
 	clientNoCompletion bool
+	clientNoBinary     bool
 	clientYes          bool
 )
 
@@ -60,6 +61,7 @@ func runClientInstall(cmd *cobra.Command, args []string) error {
 		trustCert:     !clientNoCert,
 		editHosts:     !clientNoHosts,
 		addCompletion: !clientNoCompletion,
+		installBinary: !clientNoBinary,
 	}
 
 	if !clientYes {
@@ -80,6 +82,7 @@ type installChoices struct {
 	trustCert     bool
 	editHosts     bool
 	addCompletion bool
+	installBinary bool
 }
 
 func (o *installChoices) ask() error {
@@ -157,27 +160,31 @@ func (o *installChoices) discoverServer() error {
 func (o *installChoices) run() error {
 	var summary []string
 
-	// 1) install / update the binary
-	src := ""
-	if clientFrom != "" {
-		path, err := client.DownloadTo(clientFrom)
+	// 1) install / update the binary (skipped with --no-binary, e.g. on the host
+	//    that already runs the proxy from the package, to avoid a /usr/local/bin
+	//    copy shadowing the packaged /usr/bin binary).
+	if o.installBinary {
+		src := ""
+		if clientFrom != "" {
+			path, err := client.DownloadTo(clientFrom)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = os.Remove(path) }()
+			src = path
+		} else {
+			path, err := client.CurrentBinary()
+			if err != nil {
+				return err
+			}
+			src = path
+		}
+		res, err := client.InstallBinary(src, o.dest)
 		if err != nil {
 			return err
 		}
-		defer func() { _ = os.Remove(path) }()
-		src = path
-	} else {
-		path, err := client.CurrentBinary()
-		if err != nil {
-			return err
-		}
-		src = path
+		summary = append(summary, fmt.Sprintf("binary %s at %s", res.Action, res.Path))
 	}
-	res, err := client.InstallBinary(src, o.dest)
-	if err != nil {
-		return err
-	}
-	summary = append(summary, fmt.Sprintf("binary %s at %s", res.Action, res.Path))
 
 	// 2) shell completion (best-effort, non-fatal)
 	if o.addCompletion {
@@ -445,5 +452,6 @@ func init() {
 	f.BoolVar(&clientNoCert, "no-cert", false, "skip trusting the server certificate")
 	f.BoolVar(&clientNoHosts, "no-hosts", false, "skip editing /etc/hosts")
 	f.BoolVar(&clientNoCompletion, "no-completion", false, "skip installing shell completion")
+	f.BoolVar(&clientNoBinary, "no-binary", false, "skip installing the binary (use on the host that already runs the proxy from the package)")
 	f.BoolVar(&clientYes, "yes", false, "non-interactive: use flags/defaults, no prompts")
 }
