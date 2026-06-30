@@ -42,3 +42,15 @@ jobs:
         with:
           go-version: '1.26'
       - run: CGO_ENABLED=0 go build ./...
+
+  e2e:
+    # Full subscription lifecycle across two containers (proxy + a simulated
+    # Proxmox host with fake pvesubscription/PBS tools), no real Proxmox needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+      - name: End-to-end (2 containers)
+        run: ./test/e2e/run.sh

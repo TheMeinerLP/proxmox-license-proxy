@@ -1,0 +1,35 @@
+#!/bin/sh
+# Fake `pvesubscription` for the e2e test: records the key a `set` would apply
+# and mimics the real tool's socket check (it rejects a key that licenses fewer
+# CPU sockets than the host has), so the enroll -> set path can be tested without
+# a real Proxmox VE install.
+set -eu
+STATE="${FAKE_STATE:-/var/lib/fake-proxmox}"
+mkdir -p "$STATE"
+
+case "${1:-}" in
+set)
+	key="${2:-}"
+	[ -n "$key" ] || { echo "pvesubscription: set needs a key" >&2; exit 2; }
+	# PVE keys encode the socket tier: pve<N><level>-<hex>. Reject when N is below
+	# the host's socket count, exactly like the real tool.
+	digit=$(printf '%s' "$key" | sed -n 's/^pve\([0-9]\).*/\1/p')
+	need="${FAKE_PVE_SOCKETS:-1}"
+	if [ -n "$digit" ] && [ "$digit" -lt "$need" ]; then
+		echo "wrong number of sockets ($digit < $need)" >&2
+		exit 255
+	fi
+	printf '%s\n' "$key" >"$STATE/pve.key"
+	echo "set subscription key $key"
+	;;
+get)
+	cat "$STATE/pve.key" 2>/dev/null || true
+	;;
+update)
+	echo "subscription status updated"
+	;;
+*)
+	echo "fake pvesubscription: unsupported command '${1:-}'" >&2
+	exit 1
+	;;
+esac
