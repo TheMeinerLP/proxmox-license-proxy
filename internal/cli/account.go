@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -31,12 +29,18 @@ var accountListCmd = &cobra.Command{
 				fmt.Println("no accounts yet - a Proxmox host creates one with `client enroll`")
 				return nil
 			}
-			tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-			fmt.Fprintln(tw, "THUMBPRINT\tSERVERID\tSTATUS\tCREATED")
+			rows := make([][]string, 0, len(accounts))
 			for _, a := range accounts {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", a.Thumbprint, a.ServerID, a.Status, a.CreatedAt)
+				rows = append(rows, []string{a.Thumbprint, a.ServerID, string(a.Status), a.CreatedAt})
 			}
-			return tw.Flush()
+			printTable([]string{"THUMBPRINT", "SERVERID", "STATUS", "CREATED"}, rows,
+				func(col int, val string) string {
+					if col == 2 {
+						return colorStatus(val)
+					}
+					return val
+				})
+			return nil
 		})
 	},
 }
