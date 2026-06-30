@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -221,7 +220,7 @@ func (o *installChoices) run() error {
 		summary = append(summary, "shop.proxmox.com -> "+ip+" in /etc/hosts")
 	}
 
-	fmt.Println("client install complete:")
+	fmt.Println(colorOK("client install complete:"))
 	for _, s := range summary {
 		fmt.Println("  -", s)
 	}
@@ -257,16 +256,16 @@ var clientDiscoverCmd = &cobra.Command{
 			fmt.Println("no proxmox-license-proxy servers found on the local network")
 			return nil
 		}
-		tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(tw, "INSTANCE\tHOST\tPORT\tADDRESSES")
+		rows := make([][]string, 0, len(servers))
 		for _, s := range servers {
 			addrs := make([]string, 0, len(s.IPs))
 			for _, ip := range s.IPs {
 				addrs = append(addrs, ip.String())
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n", s.Instance, s.Host, s.Port, strings.Join(addrs, ", "))
+			rows = append(rows, []string{s.Instance, s.Host, strconv.Itoa(s.Port), strings.Join(addrs, ", ")})
 		}
-		return tw.Flush()
+		printTable([]string{"INSTANCE", "HOST", "PORT", "ADDRESSES"}, rows, nil)
+		return nil
 	},
 }
 
@@ -337,7 +336,7 @@ func runClientUninstall(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println("client uninstall complete:")
+	fmt.Println(colorOK("client uninstall complete:"))
 	for _, s := range summary {
 		fmt.Println("  -", s)
 	}

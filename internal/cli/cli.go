@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -72,10 +73,13 @@ func init() {
 		&cobra.Group{ID: groupSetup, Title: "Setup:"},
 	)
 
-	// Assign each top-level command to a section.
+	// Assign each top-level command to a section. account is a server-side admin
+	// action (approving who may self-issue), so it belongs with the server group;
+	// version/doctor/completion/help stay in cobra's "Additional Commands".
 	serveCmd.GroupID = groupServer
 	licenseCmd.GroupID = groupServer
 	serverCmd.GroupID = groupServer
+	accountCmd.GroupID = groupServer
 	configCmd.GroupID = groupServer
 	statusCmd.GroupID = groupServer
 	offlineCmd.GroupID = groupServer
@@ -96,7 +100,38 @@ func loadConfig() error {
 	}
 	settings = s
 	cfgUsed = used
+	if w := shadowedConfigWarning(); w != "" {
+		fmt.Fprintln(os.Stderr, w)
+	}
 	return nil
+}
+
+// systemConfigPath is the config the packaged service runs with. A CLI run from
+// a directory that holds its own ./config.yaml would silently read that instead
+// (the search order puts "." first), so a root admin can end up managing a
+// different registry than the service - the classic "0 accounts" surprise. It is
+// a var so tests can point it at a temp file.
+var systemConfigPath = "/etc/pmox/config.yaml"
+
+// shadowedConfigWarning returns a one-line warning when an ambiguous config is in
+// effect (no -c given, a non-system config file was used, and the system config
+// also exists), or "" otherwise. It never changes behaviour - just surfaces the
+// footgun and how to resolve it.
+func shadowedConfigWarning() string {
+	if cfgFile != "" || cfgUsed == "" {
+		return "" // explicit -c, or pure defaults/env: nothing ambiguous
+	}
+	abs, err := filepath.Abs(cfgUsed)
+	if err != nil || abs == systemConfigPath {
+		return "" // already the system config
+	}
+	if _, err := os.Stat(systemConfigPath); err != nil {
+		return "" // no system config to be shadowed
+	}
+	return fmt.Sprintf(
+		"warning: using %s, which shadows the service config at %s\n"+
+			"         (the running service uses the system one; pass -c %s to match it)",
+		cfgUsed, systemConfigPath, systemConfigPath)
 }
 
 // notImplemented is the handler for commands whose subsystem is not built yet.

@@ -14,6 +14,52 @@ func newService(t *testing.T) *Service {
 	return New(registry.NewStore(filepath.Join(t.TempDir(), "registry.json")))
 }
 
+func TestIssueSocketUpgradeReissues(t *testing.T) {
+	s := newService(t)
+	const tp = "acct-thumb"
+	if _, err := s.RegisterAccount(tp, "pubkey", "srv1", "", true); err != nil {
+		t.Fatalf("RegisterAccount: %v", err)
+	}
+
+	first, err := s.IssueSubscription(IssueInput{Thumbprint: tp, Product: "pve", Sockets: "1"})
+	if err != nil {
+		t.Fatalf("issue 1-socket: %v", err)
+	}
+	if got := subscription.KeySockets(first.Key); got != 1 {
+		t.Fatalf("first key sockets = %d, want 1 (%s)", got, first.Key)
+	}
+
+	// Re-order with more sockets: must mint a new, higher-tier key...
+	second, err := s.IssueSubscription(IssueInput{Thumbprint: tp, Product: "pve", Sockets: "2"})
+	if err != nil {
+		t.Fatalf("issue 2-socket: %v", err)
+	}
+	if got := subscription.KeySockets(second.Key); got != 2 {
+		t.Errorf("second key sockets = %d, want 2 (%s)", got, second.Key)
+	}
+	if second.Key == first.Key {
+		t.Error("expected a new key on socket upgrade, got the same one")
+	}
+
+	// ...and the active assignment is now the 2-socket key, idempotent at that tier.
+	again, err := s.IssueSubscription(IssueInput{Thumbprint: tp, Product: "pve", Sockets: "2"})
+	if err != nil {
+		t.Fatalf("re-issue at same tier: %v", err)
+	}
+	if again.Key != second.Key {
+		t.Errorf("same-tier re-order changed the key: %s -> %s", second.Key, again.Key)
+	}
+
+	// A request for FEWER sockets keeps the bigger key (no downgrade).
+	lower, err := s.IssueSubscription(IssueInput{Thumbprint: tp, Product: "pve", Sockets: "1"})
+	if err != nil {
+		t.Fatalf("lower re-order: %v", err)
+	}
+	if lower.Key != second.Key {
+		t.Errorf("downgrade should keep the 2-socket key, got %s", lower.Key)
+	}
+}
+
 func TestAddLicenseDefaults(t *testing.T) {
 	lic, err := newService(t).AddLicense(AddLicenseInput{Key: "pbsc-1ab2345678"})
 	if err != nil {

@@ -34,13 +34,13 @@ const (
 func (l checkLevel) tag() string {
 	switch l {
 	case levelOK:
-		return "[ OK ]"
+		return colorOK("[ OK ]")
 	case levelInfo:
-		return "[INFO]"
+		return colorInfo("[INFO]")
 	case levelWarn:
-		return "[WARN]"
+		return colorWarn("[WARN]")
 	default:
-		return "[FAIL]"
+		return colorFail("[FAIL]")
 	}
 }
 
@@ -73,13 +73,16 @@ var doctorCmd = &cobra.Command{
 		}
 
 		worst := levelOK
+		const indent = "       "
 		for _, c := range checks {
-			fmt.Printf("%s %s\n", c.level.tag(), c.name)
+			fmt.Printf("%s %s\n", c.level.tag(), colorBold(c.name))
+			// Detail and hint may span several lines; indent every one so the
+			// block stays aligned under the heading (not just its first line).
 			if c.detail != "" {
-				fmt.Printf("       %s\n", c.detail)
+				fmt.Println(indentLines(colorDim(c.detail), indent))
 			}
 			if c.hint != "" {
-				fmt.Printf("       hint: %s\n", c.hint)
+				fmt.Println(indentLines(colorDim("hint: ")+c.hint, indent))
 			}
 			if c.level > worst {
 				worst = c.level
@@ -89,11 +92,11 @@ var doctorCmd = &cobra.Command{
 		fmt.Println()
 		switch worst {
 		case levelFail:
-			fmt.Println("doctor found problems that likely break the proxy (see [FAIL] above).")
+			fmt.Println(colorFail("doctor found problems that likely break the proxy (see [FAIL] above)."))
 		case levelWarn:
-			fmt.Println("doctor found warnings worth a look (see [WARN] above).")
+			fmt.Println(colorWarn("doctor found warnings worth a look (see [WARN] above)."))
 		default:
-			fmt.Println("doctor found nothing wrong.")
+			fmt.Println(colorOK("doctor found nothing wrong."))
 		}
 		return nil
 	},

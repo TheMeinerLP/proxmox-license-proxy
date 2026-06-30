@@ -109,23 +109,23 @@ func printServeSummary(w io.Writer, srv *httpserver.Server, mdnsName string) {
 		scheme = "http"
 	}
 
-	fmt.Fprintf(w, "\nproxmox-license-proxy is listening on %s (%s).\n\n", settings.Listen, scheme)
+	fmt.Fprintf(w, "\n%s\n\n", colorOK(fmt.Sprintf("proxmox-license-proxy is listening on %s (%s).", settings.Listen, scheme)))
 
-	fmt.Fprintln(w, "  Reachable at:")
+	fmt.Fprintln(w, "  "+colorBold("Reachable at:"))
 	for _, ip := range localIPv4s() {
 		fmt.Fprintf(w, "    %s://%s:%d\n", scheme, ip, port)
 	}
 	if mdnsName != "" {
-		fmt.Fprintf(w, "    %s://%s:%d   (mDNS, auto-discovered by `client install`)\n", scheme, mdnsName, port)
+		fmt.Fprintf(w, "    %s://%s:%d   %s\n", scheme, mdnsName, port, colorDim("(mDNS, auto-discovered by `client install`)"))
 	}
 
-	fmt.Fprintf(w, "\n  TLS mode:    %s\n", settings.TLS.Mode)
+	fmt.Fprintf(w, "\n  %s    %s\n", colorBold("TLS mode:"), settings.TLS.Mode)
 	if fp := srv.CertFingerprint(); fp != "" {
-		fmt.Fprintf(w, "  CA SHA-256:  %s\n", fp)
-		fmt.Fprintln(w, "               (verify this on the Proxmox host when `client install` prints it)")
+		fmt.Fprintf(w, "  %s  %s\n", colorBold("CA SHA-256:"), fp)
+		fmt.Fprintln(w, "               "+colorDim("(verify this on the Proxmox host when `client install` prints it)"))
 	}
 
-	fmt.Fprintln(w, "\n  Next steps:")
+	fmt.Fprintln(w, "\n  "+colorBold("Next steps:"))
 	fmt.Fprintln(w, "    1. On each Proxmox host:  proxmox-license-proxy client install")
 	fmt.Fprintln(w, "    2. Mint a lab key:        proxmox-license-proxy subscription generate")
 	fmt.Fprintln(w, "    3. Approve the host:      proxmox-license-proxy server approve")

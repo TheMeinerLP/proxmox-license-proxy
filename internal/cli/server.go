@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -61,12 +59,18 @@ func printServers(servers []subscription.Server, emptyMsg string) error {
 			fmt.Println(emptyMsg)
 			return nil
 		}
-		tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(tw, "SERVERID\tKEY\tPRODUCT\tSTATUS\tLAST SEEN")
+		rows := make([][]string, 0, len(servers))
 		for _, srv := range servers {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", srv.ServerID, srv.Key, srv.Product, srv.Status, srv.LastSeen)
+			rows = append(rows, []string{srv.ServerID, srv.Key, srv.Product, string(srv.Status), srv.LastSeen})
 		}
-		return tw.Flush()
+		printTable([]string{"SERVERID", "KEY", "PRODUCT", "STATUS", "LAST SEEN"}, rows,
+			func(col int, val string) string {
+				if col == 3 {
+					return colorStatus(val)
+				}
+				return val
+			})
+		return nil
 	})
 }
 

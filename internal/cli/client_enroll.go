@@ -138,7 +138,7 @@ func runClientEnroll(cmd *cobra.Command, args []string) error {
 	if len(order.Pending) > 0 {
 		fmt.Printf("still pending (account not approved for): %s\n", strings.Join(order.Pending, ", "))
 	}
-	fmt.Println("enroll complete.")
+	fmt.Println(colorOK("enroll complete."))
 	return nil
 }
 

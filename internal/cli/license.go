@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"text/tabwriter"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -270,12 +269,18 @@ var licenseListCmd = &cobra.Command{
 				fmt.Println("no subscriptions yet\nmint a lab key with: proxmox-license-proxy subscription generate")
 				return nil
 			}
-			tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-			fmt.Fprintln(tw, "KEY\tPRODUCT\tSTATUS\tDUE")
+			rows := make([][]string, 0, len(licenses))
 			for _, l := range licenses {
-				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", l.Key, l.ProductName, l.Status, l.NextDueDate)
+				rows = append(rows, []string{l.Key, l.ProductName, string(l.Status), l.NextDueDate})
 			}
-			return tw.Flush()
+			printTable([]string{"KEY", "PRODUCT", "STATUS", "DUE"}, rows,
+				func(col int, val string) string {
+					if col == 2 {
+						return colorStatus(val)
+					}
+					return val
+				})
+			return nil
 		})
 	},
 }
