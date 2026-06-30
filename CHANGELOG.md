@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v2.1.0...v2.2.0) (2026-06-30)
+
+
+### Features
+
+* **cli:** socket-upgrade re-issue, tidy groups, shadow-config warning, colorized output ([#17](https://github.com/TheMeinerLP/proxmox-license-proxy/issues/17)) ([79b9ad7](https://github.com/TheMeinerLP/proxmox-license-proxy/commit/79b9ad73be5f2ea31d3676fdb3644f82c0120332))
+
 ## [2.1.0](https://github.com/TheMeinerLP/proxmox-license-proxy/compare/v2.0.0...v2.1.0) (2026-06-29)
 
 
