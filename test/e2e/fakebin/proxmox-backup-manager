@@ -1,0 +1,31 @@
+#!/bin/sh
+# Fake `proxmox-backup-manager` for the e2e test: only the `subscription`
+# subcommands the client uses are implemented; they record the key a `set`
+# applies so the enroll -> set path can be tested without a real PBS install.
+set -eu
+STATE="${FAKE_STATE:-/var/lib/fake-proxmox}"
+mkdir -p "$STATE"
+
+if [ "${1:-}" != "subscription" ]; then
+	echo "fake proxmox-backup-manager: unsupported command '$*'" >&2
+	exit 1
+fi
+
+case "${2:-}" in
+set)
+	key="${3:-}"
+	[ -n "$key" ] || { echo "subscription set needs a key" >&2; exit 2; }
+	printf '%s\n' "$key" >"$STATE/pbs.key"
+	echo "set subscription key $key"
+	;;
+get)
+	cat "$STATE/pbs.key" 2>/dev/null || true
+	;;
+update)
+	echo "subscription status updated"
+	;;
+*)
+	echo "fake proxmox-backup-manager: unsupported subscription '${2:-}'" >&2
+	exit 1
+	;;
+esac

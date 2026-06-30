@@ -1,0 +1,32 @@
+# Two containers, no real Proxmox host:
+#   proxy  - runs `serve` (the subscription server)
+#   client - a simulated Proxmox host (binary + fake pvesubscription/PBS tools)
+# The driver (run.sh) execs the CLI in each and asserts the end-to-end flow.
+services:
+  proxy:
+    build: .
+    command: ["proxmox-license-proxy", "serve", "--listen", ":8443", "--mdns=false"]
+    environment:
+      PMOX_TLS_MODE: "auto"
+      PMOX_REGISTRY_FILE: "/etc/pmox/registry.json"
+      # Enables the admin API so the driver can revoke a subscription.
+      PMOX_API_ADMIN_TOKEN: "e2e-secret"
+      PMOX_LOG: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-k", "https://127.0.0.1:8443/readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+  client:
+    build: .
+    depends_on:
+      proxy:
+        condition: service_healthy
+    environment:
+      # The simulated host reports 2 CPU sockets; the fake pvesubscription
+      # rejects a key licensing fewer, mirroring real Proxmox.
+      FAKE_PVE_SOCKETS: "2"
+      FAKE_STATE: "/var/lib/fake-proxmox"
+    command: ["sleep", "infinity"]
