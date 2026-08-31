@@ -3,7 +3,7 @@ module proxmox-license-proxy
 go 1.26
 
 require (
-	github.com/charmbracelet/huh v1.0.0
+	github.com/charmbracelet/huh/v2 v2.0.3
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/gofrs/flock v0.13.0
 	github.com/grandcat/zeroconf v1.0.0
